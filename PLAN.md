@@ -1698,3 +1698,4 @@ src-tauri/src/plugins/s3/
 - 23:42 修复公共聊天室大附件发送失败：确认根因为 UDP 单数据报大小限制，公共聊天室小消息继续 UDP 广播+单播补发，超过 48KB 的图片/音频/文件等大消息自动降级为 TCP 单播投递；`cargo check`、`npm run build`、`npm test` 通过。
 - 23:53 重构 LAN Chat 文件传输：所有文件发送改为发送者本地文件服务承载，消息仅传递 fileId/token/文件元数据；图片、音频、视频在接收端自动通过发送者服务预览，普通文件点击下载时弹保存路径并拉取文件，避免 base64 消息和 UDP 大包限制。
 - 23:58 完成 v0.9.2 文件服务方案验证：`npm test` 通过（10 个测试文件、33 个用例），`npm run build` 通过（保留 Vite 大 chunk 警告），`cargo check` 通过（仅保留既有 `RedisConnectionType` 未使用警告），`npm run tauri build -- --no-bundle` 通过并生成 `src-tauri/target-0.9.2-portable/release/devnexus.exe`。
+- 23:59 调整 v0.9.2 Release 资产：tag 触发的 `release.yml` 在 Windows 构建中额外生成 `DevNexus_<version>_windows_portable.zip` 绿色版，并随 NSIS 安装包一起上传到 GitHub Release。

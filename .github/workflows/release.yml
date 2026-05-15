@@ -30,11 +30,33 @@ jobs:
       - name: Build Windows bundle
         run: npm run tauri build -- --bundles nsis
 
+      - name: Package Windows portable build
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          $portableDir = "portable/DevNexus_${version}_windows_portable"
+          New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
+          Copy-Item "src-tauri/target/release/devnexus.exe" "$portableDir/DevNexus.exe" -Force
+          @"
+          DevNexus $version Portable
+
+          Run DevNexus.exe directly.
+
+          LAN Chat notes:
+          - Files are shared through the sender local LAN file service.
+          - Images, audio, and videos auto-preview from the sender service.
+          - Other files will ask for a save path before downloading.
+          - Make sure the sender stays online while receivers preview or download files.
+          "@ | Set-Content "$portableDir/README.txt" -Encoding UTF8
+          Compress-Archive -Path "$portableDir/*" -DestinationPath "portable/DevNexus_${version}_windows_portable.zip" -Force
+
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-windows
-          path: src-tauri/target/release/bundle/nsis/*.exe
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            portable/*.zip
           if-no-files-found: error
 
   build-macos:
@@ -127,6 +149,7 @@ jobs:
           body_path: docs/releases/${{ github.ref_name }}.md  # 先注释掉，避免找不到文件
           files: |
             dist-release/release-windows/**/*.exe
+            dist-release/release-windows/**/*.zip
             dist-release/release-macos/**/*.dmg
             dist-release/release-linux/**/*.deb
             dist-release/release-linux/**/*.AppImage
