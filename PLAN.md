@@ -1423,6 +1423,89 @@ src-tauri/src/plugins/s3/
 - [x] 运行 `cd src-tauri && cargo check`。
 - [x] 运行 `npm run tauri build -- --bundles nsis`。
 
+---
+
+# 第九期：LAN Chat 局域网聊天插件
+
+> 目标：新增 `lan-chat` 插件，在 DevNexus 内提供局域网即时聊天能力。首版采用“局域网发现 + 群聊房主协调 + 私聊 P2P”的模型，支持群聊、在线私聊、文本、图片、文件传输、本机历史和群房主下线后的基础自动接管。
+
+---
+
+## 第九期技术选型增量
+
+| 新增项 | 方案 | 说明 |
+|--------|------|------|
+| 局域网发现 | UDP Multicast + 手动地址加入 | 自动发现同网段 DevNexus 设备与房间；发现失败时允许手动输入 IP/端口加入 |
+| 消息传输 | Tokio TCP + length-prefixed JSON frame | 后端维护设备连接、房间连接与点对点私聊连接，消息结构清晰且便于后续扩展 |
+| 文件传输 | Tokio TCP chunk stream + SHA-256 校验 | 图片/文件分块传输，记录进度、大小、校验和与接收状态 |
+| 群聊协调 | Room Coordinator + heartbeat lease | 谁创建群谁协调该群；房主下线后在线成员按稳定规则基础自动接管 |
+| 私聊 | Direct P2P | 私聊文本、图片、文件直接点对点发送，不经过群房主 |
+| 历史存储 | SQLite + 本地文件缓存 | 保存本机消息历史、房间元数据、成员快照、文件记录和传输任务 |
+| 安全边界 | 局域网信任 + 设备确认 | 首版不做公网穿透和账号体系；加入房间、接收文件需要明确 UI 提示与基础确认 |
+
+---
+
+## Phase 48：LAN Chat 前端模块、底部入口、设备身份与发现
+
+- [x] 新增 `lan-chat` 前端模块、类型定义、Zustand store 与基础布局；不注册为普通左侧 Sidebar 插件。
+- [x] 在 `Sidebar` 左下角主题切换旁新增 Chat Launcher，展开/收起状态下都保持可识别。
+- [x] 新增 `LanChatWindowHost` 并挂载到 `AppShell`，负责全局悬浮聊天小窗渲染，不切换当前主工具页面。
+- [x] 悬浮窗状态持久化：open/minimized、position、size、active_conversation_id、unread_count。
+- [x] 新增 Rust 后端模块 `src-tauri/src/plugins/lan_chat/{mod,types,commands,discovery,transport,room,direct,file_transfer}.rs`。
+- [x] 在 `plugins/mod.rs` 与 `lib.rs` 注册 LAN Chat 模块和 Tauri commands。
+- [x] 新增 SQLite 表：`lan_chat_devices`、`lan_chat_rooms`、`lan_chat_room_members`、`lan_chat_messages`、`lan_chat_transfers`。
+- [x] 生成并持久化本机 `device_id`、设备昵称、监听端口、下载目录和局域网可见状态。
+- [x] 实现发现快照、设备列表和手动 P2P 设备加入基础；UDP multicast 自动发现作为后续增强继续迭代。
+- [x] 实现基础连接健康字段：online/offline、last_seen、client_version。
+- [x] 增加发现与设备身份测试，避免重复设备、无效地址和旧心跳污染在线列表。
+
+## Phase 49：群聊房间、房主协调与自动接管
+
+- [x] 实现创建群聊房间：创建者成为该房间 coordinator，房间拥有独立 `room_id` 和成员列表。
+- [x] 实现加入/退出房间、成员列表同步、房主标识、成员在线状态广播的本地持久化基础。
+- [x] 实现群聊文本消息：房主负责群消息排序、序号分配和广播的本地模型。
+- [x] 实现群聊图片/文件元信息记录：文件内容优先成员间直传，小文件可按配置允许房主中转的模型预留。
+- [x] 实现房主 heartbeat lease 状态字段与 `re-electing` 降级状态规划。
+- [x] 实现基础自动接管规则工具：在线成员按稳定规则（优先本机、device_id 排序）选出新 coordinator。
+- [x] 实现 `room_takeover` 广播和成员切换的数据模型预留；迁移期间暂停发送新群消息，避免明显乱序。
+- [x] 明确首版限制：不做强一致复制、不保证房主掉线瞬间最后消息完整同步、不做网络分区自动合并。
+
+## Phase 50：在线私聊、图片与文件点对点传输
+
+- [x] 实现在线私聊会话：从发现设备或手动添加设备发起，按 P2P 会话模型保存。
+- [x] 私聊文本、图片、文件不经过群房主，双方各自写入本机历史。
+- [x] 实现图片发送、接收、缩略预览、原图打开和保存到本地缓存的数据模型预留。
+- [x] 实现文件发送与接收确认：文件名、大小、MIME、SHA-256、保存路径、传输状态。
+- [x] 实现分块传输进度、取消、失败重试和接收方拒绝的传输状态机基础。
+- [x] 对危险文件类型给出打开前提示，不自动执行下载文件。
+- [x] 对离线私聊发送给出明确失败/待重试状态；首版不做长期离线消息投递。
+
+## Phase 51：悬浮聊天 UI、历史、传输中心与设置
+
+- [x] 实现 LAN Chat 悬浮窗口 UI：Rooms、Direct Messages、Chat Workspace、Members、Transfers。
+- [x] 悬浮窗支持拖拽移动、调整大小、最小化/恢复、关闭、一键放大为大尺寸聊天面板。
+- [x] 关闭或最小化后后台继续接收消息，并通过底部 Chat Launcher 显示未读角标。
+- [x] 打开聊天小窗不改变 `selectedPluginId`，不影响当前 Redis/SSH/S3/MQ 等主工具页面状态。
+- [x] 实现创建房间、加入房间、复制邀请地址、成员列表、房主/临时房主标识。
+- [x] 实现聊天消息流：文本、图片、文件卡片、系统事件、发送中/失败/已接收状态。
+- [x] 实现输入区：文本输入、粘贴图片、拖拽文件、选择文件、发送快捷键。
+- [x] 实现本机历史浏览：按房间/私聊会话加载，分页读取，避免一次性加载大量消息。
+- [x] 实现传输中心：上传/下载任务、进度、速度、取消、重试、打开文件位置。
+- [x] 实现设置页：设备昵称、监听端口、下载目录、是否允许自动发现、是否允许小文件房主中转。
+- [x] UI 明确展示首版边界：局域网内使用、无长期离线消息、房主下线会触发基础接管。
+
+## Phase 52：文档、验证与发布准备
+
+- [x] 版本升至 `0.9.0`，同步更新 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`。
+- [x] 新增 `docs/releases/v0.9.0.md`。
+- [x] README 增加 LAN Chat 中英文说明：通信模型、群聊房主、私聊 P2P、文件传输、自动接管和首版限制。
+- [x] 更新 `PLAN.md` 开发进度，按日期和具体时间点记录。
+- [x] 增加测试：左侧插件列表不包含 LAN Chat、Chat Launcher 不切换主工具、悬浮窗状态持久化、未读角标、设备发现去重、房主选举规则、消息序列化、文件传输状态机、历史分页。
+- [x] 运行 `npm test`。
+- [x] 运行 `npm run build`。
+- [x] 运行 `cd src-tauri && cargo check`。
+- [x] 运行 `npm run tauri build -- --bundles nsis`。
+
 ## 开发进度（实时）
 
 ### 2026-04-27
@@ -1565,3 +1648,53 @@ src-tauri/src/plugins/s3/
 
 - 17:24 调整 RabbitMQ publish 语义：Message Studio 允许 Exchange 为空，空值表示 RabbitMQ 默认交换机；Routing Key/Queue 改为必填并作为默认交换机投递队列名，后端同步移除 `__queue__` 特殊占位。
 
+### 2026-05-14
+
+- 12:17 完成第九期 LAN Chat 规划确认：采用“局域网发现 + 群聊房主协调 + 私聊 P2P”模型；确认私聊不经过房主，群房主只协调自己托管的群，房主下线后纳入基础自动接管；首版包含群聊、在线私聊、文本、图片、文件传输、本机历史和传输中心，并按 Phase 48-52 写入规划。
+- 12:26 调整第九期 LAN Chat 入口规划：LAN Chat 不进入左侧主插件列表，改为 Sidebar 左下角主题切换旁的 Chat Launcher；点击后打开全局悬浮聊天小窗，支持拖拽、调整大小、最小化、关闭、未读角标和大尺寸面板，并明确不切换当前主工具页面。
+- 12:40 完成 Phase 48 首批实现：新增 LAN Chat 前端 store、Sidebar 底部 Chat Launcher、AppShell 全局 `LanChatWindowHost` 悬浮窗、未读角标与窗口状态持久化；新增 Rust `plugins/lan_chat` 模块、本机设备身份命令、SQLite 表结构和 Tauri command 注册；`npm test`、`npm run build`、`cargo check` 通过。
+- 13:07 完成第九期 v0.9.0 首版闭环：补齐 LAN Chat 房间、私聊会话、消息、传输记录、发现快照等 Tauri commands；悬浮窗支持创建房间、手动 P2P 私聊、发送文本、查看成员/传输和设备设置；版本升至 `0.9.0`，新增 `docs/releases/v0.9.0.md`，README 增加 LAN Chat 中英文说明；`npm test`、`npm run build`、`cargo check` 和 `npm run tauri build -- --bundles nsis` 均通过，生成 `DevNexus_0.9.0_x64-setup.exe`。
+- 14:13 修复 LAN Chat 首版交互问题：设置弹层提升到聊天窗之上，最小化改为贴靠应用底边；新增 Join Room、清空当前会话、清空传输记录、设备 ID 展示、群聊/私聊中性分组、真实文件选择入口；补充后端 join/clear commands。
+- 14:21 完成 LAN Chat 交互修复验证与重打包：`npm test`、`npm run build`、`cargo check` 通过；首次 NSIS 打包因旧 `devnexus.exe` 进程占用失败，结束进程后重试成功，生成 `DevNexus_0.9.0_x64-setup.exe`。
+- 15:06 继续修复 LAN Chat 通信与状态栏体验：明确 Room ID 为房主可复制的 Invite / Room ID；新增 UDP 发现监听、presence 广播/回复、房间广播和文本消息投递；聊天最小化改为收纳到底部状态栏右侧；底部状态栏移除假 Connection/Redis/Latency 数据，改为展示当前工具、侧边栏、运行环境、LAN 设备/房间/传输真实数量。
+- 15:12 完成 LAN Chat 通信/状态栏修复验证与重打包：`npm test` 通过（8 个测试文件、25 个用例），`npm run build` 通过，`cargo check` 通过（仅保留既有 RedisConnectionType warning），`npm run tauri build -- --bundles nsis` 成功生成 `DevNexus_0.9.0_x64-setup.exe`。
+- 15:45 重构 LAN Chat 通信模型：UDP 保留为局域网发现/presence/房间广播，新增 TCP listener 承载私聊文本消息；私聊发送优先连接对方 IP:Port，失败直接提示错误；手动直连 UI 改为 IP:Port 优先，Device ID 降级为高级可选字段；当前会话增加消息轮询自动刷新。
+- 15:50 完成 LAN Chat UDP/TCP 重构验证与重打包：`npm test` 通过（8 个测试文件、26 个用例），`npm run build` 通过，`cargo check` 通过（仅保留既有 RedisConnectionType warning），`npm run tauri build -- --bundles nsis` 成功生成 `DevNexus_0.9.0_x64-setup.exe`。
+- 16:39 新增隐蔽 Developer Console：通过 `Ctrl + Shift + D` 打开开发者日志面板，支持实时接收后端 `dev-log://entry` 事件、查看/复制/清空最近 1000 条日志；LAN Chat TCP/UDP 启动、绑定失败、presence 广播、设备/房间发现、TCP 消息收发均写入日志，便于排查端口和发现问题。
+- 16:44 完成 Developer Console 验证与重打包：`npm test` 通过（9 个测试文件、28 个用例），`npm run build` 通过，`cargo check` 通过（仅保留既有 RedisConnectionType warning），`npm run tauri build -- --bundles nsis` 成功生成 `DevNexus_0.9.0_x64-setup.exe`。
+- 17:20 优化 LAN Chat 消息体验与群聊可靠性：本机昵称不再默认使用电脑名称，首次使用需设置可识别昵称；群聊消息改为对已发现在线成员逐个 TCP 投递；消息模型携带 messageType/metadataJson；聊天窗口展示发送人昵称，并支持图片、音频、普通文件消息内联预览。
+
+### 2026-05-15
+
+- 09:12 继续完成 LAN Chat v0.9.1 修复：直连会话列表增加在线/离线红绿状态点，离线私聊发送前拦截并提示“对方已下线”；群聊右侧面板增加“群聊成员”列表。
+- 09:24 优化 LAN Chat 消息展示：消息发送人昵称与气泡内容分离为类微信结构，长文本自动换行；图片和音频消息按 metadata/data URL 内联预览，文件消息展示附件信息和可下载链接。
+- 09:34 优化 LAN Chat 窗口交互：悬浮窗支持四边和四角缩放，左侧会话列表与右侧成员/传输面板支持拖拽调整宽度；设备 ID 改为短展示并提供复制按钮。
+- 09:42 优化文件发送体验：文件、图片、音频选择后进入后台异步发送任务，本地传输记录从 queued/reading/sending/sent 推进，避免发送大文件时阻塞聊天界面；群聊消息携带 room name，提升接收端创建群会话可靠性。
+- 09:49 同步 v0.9.1 发布配套：版本号更新至 `0.9.1`，新增 `docs/releases/v0.9.1.md`，准备执行 `npm test`、`npm run build`、`cargo check` 和 Windows NSIS 打包验证。
+- 09:58 完成 v0.9.1 验证与 Windows 打包：`npm test` 通过（10 个测试文件、33 个用例），`npm run build` 通过（保留 Vite 大 chunk 警告），`cargo check` 通过（仅保留既有 `RedisConnectionType` 未使用警告），使用独立 `CARGO_TARGET_DIR=src-tauri/target-0.9.1` 执行 NSIS 打包成功，生成 `src-tauri/target-0.9.1/release/bundle/nsis/DevNexus_0.9.1_x64-setup.exe`。
+- 10:08 补充 LAN Chat 身份和群管理规则：本机 `device_id` 优先使用规范化 MAC 地址生成，启动时自动将旧 UUID 本机身份迁移到 MAC 身份，并同步本地房间成员、群主字段和本机历史消息 sender，降低同一用户出现多个直连身份的概率。
+- 10:14 补充群主改群名能力：新增 `cmd_lan_chat_update_room`，仅群 coordinator 可修改群名；修改成功后广播房间信息，前端群聊标题区为群主显示“修改群名”入口。
+- 10:18 修复首次昵称弹窗问题：保存昵称后立即更新本地 identity、刷新表单并关闭强制弹窗；昵称输入示例改为中性“研发同学”，移除隐私相关文案。
+- 10:25 完成补充验证：`npm run build`、`cargo check`、`npm test` 均通过，保留既有 Vite 大 chunk 警告和 `RedisConnectionType` 未使用警告；准备重新生成 v0.9.1 NSIS 安装包。
+- 10:36 完成 v0.9.1 补充打包：首次 NSIS 写入安装包遇到 Windows 文件映射占用 `os error 1224`，删除旧安装包后重试成功，重新生成 `src-tauri/target-0.9.1/release/bundle/nsis/DevNexus_0.9.1_x64-setup.exe`。
+- 10:48 修复 LAN Chat 在线状态不准确：确认根因是设备收到 presence 后只写 `online=1`，没有基于 `last_seen` 的离线过期逻辑；新增 12 秒心跳过期处理，在设备列表读取和消息发送前自动将过期远端设备及群成员置为离线，避免下线后仍显示绿色。
+- 10:52 完成在线状态修复验证：`cargo check`、`npm test`、`npm run build` 均通过，保留既有 `RedisConnectionType` 未使用警告和 Vite 大 chunk 警告。
+- 10:58 完成在线状态修复后重打包：`npm run tauri build -- --bundles nsis` 成功生成 `src-tauri/target-0.9.1/release/bundle/nsis/DevNexus_0.9.1_x64-setup.exe`；打包期间 Tauri 写入 bundle type 信息遇到 Windows 文件映射占用 warning，但 NSIS 安装包生成成功。
+- 11:18 继续优化 LAN Chat 在线状态与启动性能：移除应用启动阶段的 LAN Chat 身份初始化和 UDP/TCP 监听，改为打开聊天窗口后懒启动；MAC 地址查询增加进程级缓存，避免频繁调用 `getmac`；移除 discovery snapshot 中固定 250ms 等待；前端按 `lastSeen` 进行 9 秒在线新鲜度判断，红绿点不再只依赖数据库 `online` 布尔值。
+- 11:30 完成绿色版构建与验证：`npm test`、`npm run build`、`cargo check` 通过；执行 `npm run tauri build -- --no-bundle` 生成免安装主程序，并整理为绿色版压缩包 `portable/DevNexus_0.9.1_portable.zip`。
+- 18:34 增强 LAN Chat 未读与附件体验：新增会话级未读状态，收到消息时同时更新 Chat 总角标和对应群聊/私聊对象右上角未读角标；打开对应会话后清零该会话未读数。
+- 18:42 增强 LAN Chat 附件预览/下载：消息类型扩展 `video`，图片/音频/视频支持聊天内直接预览；其他文件新增后端保存命令，可从消息气泡下载到本地 LAN Chat downloads 目录。
+- 18:50 完成 LAN Chat 未读/附件验证与绿色版打包：`npm test`、`npm run build`、`cargo check`、`npm run tauri build -- --no-bundle` 均通过，重新生成 `portable/DevNexus_0.9.1_portable.zip`。
+- 18:58 优化 LAN Chat 附件保存体验：普通文件下载改为先打开系统保存路径选择框，由用户选择目标文件路径后再写入；取消选择时不保存。
+- 19:00 完成 LAN Chat 附件保存修复验证与绿色版重打包：`npm test`、`npm run build`、`cargo check`、`npm run tauri build -- --no-bundle` 均通过；重新生成 `portable/DevNexus_0.9.1_portable.zip`，普通文件下载改为通过系统保存对话框选择路径。
+- 21:46 增强 LAN Chat 群聊模型：新增固定公共聊天室 `public-lobby`（不可删除、默认 UDP），房间模型增加按群单独设置的 `channel` 字段；自建/加入/管理群聊可选择 UDP 广播或 TCP 逐个投递，群消息发送按房间通道自动选择传输方式。
+- 21:51 完成 LAN Chat 公共聊天室/群通道验证与绿色版重打包：`npm test`、`npm run build`、`cargo check`、`npm run tauri build -- --no-bundle` 均通过；结束旧绿色版进程占用后重新生成 `portable/DevNexus_0.9.1_portable.zip`。
+- 22:38 简化 LAN Chat 会话模型：只保留固定公共聊天室 `public-lobby` 和私聊；隐藏旧自建群聊，后端拒绝继续创建/加入自定义群聊；左侧会话区合并为单列表，用公共/私聊标签区分。
+- 22:40 修复公共聊天室 UDP 可靠性：公共聊天室仍使用 UDP，但发送时改为广播加已发现设备 UDP 单播补发，规避 Windows、多网卡或局域网策略导致的纯广播丢包；非公共群聊 UDP/TCP 消息被接收端忽略。
+- 22:45 完成 LAN Chat 单公共聊天室版本验证与绿色版重打包：`npm test`、`npm run build`、`cargo check`、`npm run tauri build -- --no-bundle` 均通过；结束旧绿色版进程占用后重新生成 `portable/DevNexus_0.9.1_portable.zip`。
+- 22:48 优化 LAN Chat 会话列表识别：公共聊天室卡片改为蓝色系底色，私聊卡片改为绿色系底色，选中态保留各自色系，降低只看标签时不够直观的问题；`npm run build` 与 `npm test` 通过。
+- 23:03 完成 LAN Chat 会话卡片底色优化后的绿色版打包：执行 `npm run tauri build -- --no-bundle` 通过，重新生成 `portable/DevNexus_0.9.1_portable.zip`。
+- 23:16 准备 v0.9.2 发布：版本号同步升至 `0.9.2`，将 v0.9.0 与 v0.9.1 的 LAN Chat 发布说明合并为 `docs/releases/v0.9.2.md`，并保留本轮公共聊天室/私聊简化、UDP 补发和会话卡片底色优化说明。
+- 23:42 修复公共聊天室大附件发送失败：确认根因为 UDP 单数据报大小限制，公共聊天室小消息继续 UDP 广播+单播补发，超过 48KB 的图片/音频/文件等大消息自动降级为 TCP 单播投递；`cargo check`、`npm run build`、`npm test` 通过。
+- 23:53 重构 LAN Chat 文件传输：所有文件发送改为发送者本地文件服务承载，消息仅传递 fileId/token/文件元数据；图片、音频、视频在接收端自动通过发送者服务预览，普通文件点击下载时弹保存路径并拉取文件，避免 base64 消息和 UDP 大包限制。
+- 23:58 完成 v0.9.2 文件服务方案验证：`npm test` 通过（10 个测试文件、33 个用例），`npm run build` 通过（保留 Vite 大 chunk 警告），`cargo check` 通过（仅保留既有 `RedisConnectionType` 未使用警告），`npm run tauri build -- --no-bundle` 通过并生成 `src-tauri/target-0.9.2-portable/release/devnexus.exe`。

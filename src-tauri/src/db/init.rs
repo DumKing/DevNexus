@@ -276,9 +276,87 @@ pub fn run(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS lan_chat_devices (
+          id TEXT PRIMARY KEY NOT NULL,
+          device_id TEXT NOT NULL UNIQUE,
+          nickname TEXT NOT NULL,
+          host TEXT,
+          port INTEGER NOT NULL DEFAULT 45881,
+          online INTEGER NOT NULL DEFAULT 0,
+          is_local INTEGER NOT NULL DEFAULT 0,
+          last_seen TEXT,
+          client_version TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS lan_chat_rooms (
+          id TEXT PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL,
+          coordinator_device_id TEXT NOT NULL,
+          channel TEXT NOT NULL DEFAULT 'udp',
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS lan_chat_room_members (
+          id TEXT PRIMARY KEY NOT NULL,
+          room_id TEXT NOT NULL,
+          device_id TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'member',
+          online INTEGER NOT NULL DEFAULT 0,
+          last_seen TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS lan_chat_messages (
+          id TEXT PRIMARY KEY NOT NULL,
+          conversation_id TEXT NOT NULL,
+          conversation_type TEXT NOT NULL,
+          sender_device_id TEXT NOT NULL,
+          message_type TEXT NOT NULL,
+          content TEXT NOT NULL,
+          metadata_json TEXT NOT NULL DEFAULT '{}',
+          status TEXT NOT NULL DEFAULT 'sent',
+          created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS lan_chat_transfers (
+          id TEXT PRIMARY KEY NOT NULL,
+          conversation_id TEXT NOT NULL,
+          conversation_type TEXT NOT NULL,
+          peer_device_id TEXT,
+          file_name TEXT NOT NULL,
+          file_size INTEGER NOT NULL DEFAULT 0,
+          sha256 TEXT,
+          save_path TEXT,
+          direction TEXT NOT NULL,
+          status TEXT NOT NULL,
+          progress INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS lan_chat_shared_files (
+          file_id TEXT PRIMARY KEY NOT NULL,
+          token TEXT NOT NULL,
+          path TEXT NOT NULL,
+          file_name TEXT NOT NULL,
+          mime_type TEXT,
+          file_size INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL
+        );
         "#,
     )
     .map_err(|err| format!("failed to initialize schema: {err}"))?;
+
+    let _ = conn.execute(
+        "ALTER TABLE lan_chat_rooms ADD COLUMN channel TEXT NOT NULL DEFAULT 'udp'",
+        [],
+    );
 
     Ok(db_path)
 }

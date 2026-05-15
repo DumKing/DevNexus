@@ -8,7 +8,7 @@
 
 DevNexus 是一个基于 **Tauri 2 + React 19 + TypeScript + Rust** 的插件化桌面工具箱，面向开发、运维和日常数据管理场景。它把常用的连接类工具放进同一个轻量桌面应用里，当前重点覆盖 Redis、SSH、S3、MongoDB、MySQL、Network 诊断、API 调试和 MQ 调试。
 
-当前版本：`0.8.0`
+当前版本：`0.9.2`
 
 ### 核心能力
 
@@ -22,6 +22,7 @@ DevNexus 是一个基于 **Tauri 2 + React 19 + TypeScript + Rust** 的插件化
 | Network Tools | 已实现 | Ping、TCP 端口检测、DNS 解析、Traceroute、诊断历史与复跑 |
 | API Debugger | 已实现 | HTTP 请求构建与发送、集合/环境变量、响应查看、历史复跑、cURL 导入、脱敏导出 |
 | MQ Client | 已实现 | RabbitMQ/Kafka 连接管理、资源浏览、消息发送、临时消费预览、消息模板、历史复跑与安全脱敏 |
+| LAN Chat | 持续增强 | 左下角聊天入口、悬浮聊天窗、局域网房间/私聊、在线状态、群成员列表、图片/音频内联预览、文件发送进度、本机历史与传输记录 |
 
 ### 产品特点
 
@@ -49,6 +50,7 @@ DevNexus 是一个基于 **Tauri 2 + React 19 + TypeScript + Rust** 的插件化
 | MongoDB | official `mongodb` Rust driver |
 | MySQL | `mysql_async` |
 | MQ | `lapin` / `rdkafka` / RabbitMQ Management HTTP API |
+| LAN Chat | Tokio TCP/UDP 规划 + SQLite 本地历史 |
 | HTTP/API | `reqwest` |
 
 ### 项目结构
@@ -64,6 +66,7 @@ src/
     mysql-client/
     network-tools/
     api-debugger/
+    lan-chat/
   styles/                      全局样式
 
 src-tauri/
@@ -77,6 +80,7 @@ src-tauri/
       mysql/
       network/
       api_debugger/
+      lan_chat/
     crypto/                    本地敏感字段加解密
   icons/                       应用图标资源
   tauri.conf.json              Tauri 应用配置
@@ -148,7 +152,7 @@ npm run tauri build -- --bundles deb,appimage
 Windows 产物示例：
 
 ```text
-src-tauri/target/release/bundle/nsis/DevNexus_0.8.0_x64-setup.exe
+src-tauri/target/release/bundle/nsis/DevNexus_0.9.2_x64-setup.exe
 ```
 
 ### 发布流程
@@ -184,11 +188,12 @@ git push origin vX.Y.Z
 - Redis Sentinel/Cluster、S3 生命周期编辑、应用内自动更新等能力仍按 `PLAN.md` 继续迭代。
 - MySQL 当前优先覆盖 MySQL 5.7/8.0 常用管理能力；MariaDB 基础协议兼容时可尝试使用，但不是当前验收重点。
 - Network 工具首版只做单次诊断与历史复跑，不做批量端口扫描或持续监控。API Debugger 首版支持 HTTP 调试、集合、环境、历史、cURL 导入和脱敏导出，暂不承诺完整 Postman Collection/脚本生态兼容。MQ Client 首版支持 RabbitMQ 与 Kafka 日常调试；RabbitMQ 浏览依赖 Management Plugin，Kafka 首版支持 PLAINTEXT 与 SASL/PLAIN，TLS 字段预留但不承诺完整证书链管理；首版不做 queue purge/delete、topic 创建/删除、offset commit 或 broker 配置修改。
+- LAN Chat 首版以局域网内使用为边界：入口位于左下角主题按钮旁，聊天以悬浮窗呈现，不占用左侧主工具导航；当前只保留固定公共聊天室和私聊。当前已完成本机身份、消息、传输记录、UDP 发现、TCP 消息投递、在线/离线状态、会话未读角标，以及图片/音频/视频自动预览；文件发送改为发送者本地局域网文件服务承载，消息只传递 fileId/token/文件元数据，普通文件下载时由接收端选择保存路径后拉取。
 - 大表、大桶、大集合场景应优先使用分页、前缀过滤或查询条件，避免一次性加载过多数据。
 
 ### 路线图
 
-后续路线以 `PLAN.md` 为准。当前已完成 Redis、SSH、S3、MongoDB、MySQL、Network、API Debugger、MQ Client 八条主线，后续将继续补齐导入导出细节、更新检测、更多数据库能力和体验优化。
+后续路线以 `PLAN.md` 为准。当前已完成 Redis、SSH、S3、MongoDB、MySQL、Network、API Debugger、MQ Client 和 LAN Chat 九条主线，后续将继续补齐导入导出细节、更新检测、更多数据库能力和体验优化。
 
 ---
 
@@ -196,7 +201,7 @@ git push origin vX.Y.Z
 
 DevNexus is a plugin-based desktop toolbox built with **Tauri 2 + React 19 + TypeScript + Rust**. It is designed for everyday development, operations, and data-management workflows, bringing common connection-oriented and diagnostic tools into one lightweight desktop application.
 
-Current version: `0.8.0`
+Current version: `0.9.2`
 
 ### Features
 
@@ -210,6 +215,7 @@ Current version: `0.8.0`
 | Network Tools | Implemented | Ping, TCP port checks, DNS lookup, Traceroute, diagnostic history and rerun |
 | API Debugger | Implemented | HTTP request builder/sender, collections/environments, response inspection, history rerun, cURL import, redacted export |
 | MQ Client | Implemented | RabbitMQ/Kafka profiles, resource browsing, publish/produce, safe consume preview, templates, history rerun, and redaction |
+| LAN Chat | Iterating | Bottom-left chat launcher, floating chat window, LAN room/direct chat, online presence, group member list, inline image/audio previews, file-send progress, local history and transfer records |
 
 ### Highlights
 
@@ -367,8 +373,9 @@ git push origin vX.Y.Z
 - Redis Sentinel/Cluster, S3 lifecycle editing, and in-app auto-update are still roadmap items tracked in `PLAN.md`.
 - MySQL currently targets common MySQL 5.7/8.0 workflows. MariaDB may work when protocol-compatible, but it is not the primary validation target.
 - Network Tools currently support one-shot diagnostics and history reruns, not bulk port scanning or continuous monitoring. API Debugger supports HTTP debugging, collections, environments, history, cURL import, and redacted export, but does not yet promise full Postman Collection or script ecosystem compatibility. MQ Client supports RabbitMQ and Kafka daily debugging; RabbitMQ browsing requires the Management Plugin, Kafka initially supports PLAINTEXT and SASL/PLAIN, TLS fields are reserved, and destructive queue/topic/offset operations are intentionally out of scope.
+- LAN Chat now keeps one built-in public room plus direct chats. It includes UDP discovery, TCP message delivery, online/offline presence, per-conversation unread badges, inline image/audio/video previews, and sender-hosted LAN file URLs. Chat messages carry only file metadata and download tokens; generic files are pulled from the sender service after the receiver chooses a save path.
 - Large tables, buckets, or collections should be browsed with pagination, prefixes, or query filters rather than loading everything at once.
 
 ### Roadmap
 
-The canonical roadmap is `PLAN.md`. Redis, SSH, S3, MongoDB, MySQL, Network, API Debugger, and MQ Client main tracks are implemented; future iterations will continue improving import/export, update checks, database depth, diagnostics, and user experience.
+The canonical roadmap is `PLAN.md`. Redis, SSH, S3, MongoDB, MySQL, Network, API Debugger, MQ Client, and LAN Chat main tracks are implemented; future iterations will continue improving import/export, update checks, database depth, diagnostics, and user experience.

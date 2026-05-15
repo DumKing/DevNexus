@@ -3,20 +3,23 @@ import {
   DatabaseOutlined,
   DownOutlined,
   LeftOutlined,
+  MessageOutlined,
   MoonOutlined,
   RightOutlined,
   SunOutlined,
 } from "@ant-design/icons";
-import { Button, Dropdown, Tooltip } from "antd";
+import { Badge, Button, Dropdown, Tooltip } from "antd";
 import type { MenuProps } from "antd";
 import clsx from "clsx";
 
+import { getSidebarPlugins } from "@/app/plugin-registry/visibility";
 import { getAll } from "@/app/plugin-registry/registry";
 import { useSettingsStore } from "@/app/store/settings";
 import { useThemeStore } from "@/app/store/theme";
+import { useLanChatStore } from "@/plugins/lan-chat/store/lan-chat";
 
 export function Sidebar() {
-  const plugins = getAll();
+  const plugins = getSidebarPlugins(getAll());
   const dbPluginIds = new Set(["redis-manager", "mongodb-client", "mysql-client"]);
   const dbPlugins = plugins.filter((plugin) => dbPluginIds.has(plugin.id));
   const topLevelPlugins = plugins.filter((plugin) => !dbPluginIds.has(plugin.id));
@@ -34,6 +37,8 @@ export function Sidebar() {
   );
   const mode = useThemeStore((state) => state.mode);
   const toggleMode = useThemeStore((state) => state.toggleMode);
+  const openChatWindow = useLanChatStore((state) => state.openWindow);
+  const unreadCount = useLanChatStore((state) => state.window.unreadCount);
   const dbGroupActive = dbPlugins.some((plugin) => plugin.id === selectedPluginId);
   const activeDbPlugin = dbPlugins.find((plugin) => plugin.id === selectedPluginId);
   const dbMenuItems: MenuProps["items"] = dbPlugins.map((plugin) => ({
@@ -143,13 +148,28 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="devnexus-sidebar__bottom">
-        <Button
-          type="text"
-          icon={mode === "light" ? <MoonOutlined /> : <SunOutlined />}
-          onClick={toggleMode}
-        >
-          {sidebarCollapsed ? null : mode === "light" ? "Dark" : "Light"}
-        </Button>
+        <Tooltip placement={sidebarCollapsed ? "right" : "top"} title="LAN Chat">
+          <Badge count={unreadCount} size="small" overflowCount={99}>
+            <Button
+              type="text"
+              className="devnexus-sidebar__utility-button"
+              icon={<MessageOutlined />}
+              onClick={openChatWindow}
+            >
+              {sidebarCollapsed ? null : "Chat"}
+            </Button>
+          </Badge>
+        </Tooltip>
+        <Tooltip placement={sidebarCollapsed ? "right" : "top"} title={mode === "light" ? "Dark" : "Light"}>
+          <Button
+            type="text"
+            className="devnexus-sidebar__utility-button"
+            icon={mode === "light" ? <MoonOutlined /> : <SunOutlined />}
+            onClick={toggleMode}
+          >
+            {sidebarCollapsed ? null : mode === "light" ? "Dark" : "Light"}
+          </Button>
+        </Tooltip>
       </div>
     </aside>
   );

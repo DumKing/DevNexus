@@ -1,12 +1,20 @@
-import { Layout, Tag, Typography } from "antd";
+import { MessageOutlined } from "@ant-design/icons";
+import { Badge, Button, Layout, Space, Tag, Typography } from "antd";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
+import { DeveloperConsole } from "@/app/developer-console/DeveloperConsole";
 import { Sidebar } from "@/app/layout/Sidebar";
+import { buildAppStatusItems, shouldDockChatInStatusBar } from "@/app/layout/status-bar";
 import { Titlebar } from "@/app/layout/Titlebar";
 import { PluginRouter } from "@/app/plugin-registry/PluginRouter";
+import { getById } from "@/app/plugin-registry/registry";
 import { useSettingsStore } from "@/app/store/settings";
+import { getLanChatSnapshot, listLanChatConversations, listLanChatMessages, startLanChatNetwork } from "@/plugins/lan-chat/api";
+import { LanChatWindowHost } from "@/plugins/lan-chat/components/LanChatWindowHost";
+import { useLanChatStore } from "@/plugins/lan-chat/store/lan-chat";
+import type { LanChatSnapshot } from "@/plugins/lan-chat/types";
 
 const { Content, Footer } = Layout;
 type ResizeDirection =
@@ -21,8 +29,65 @@ type ResizeDirection =
 
 export function AppShell() {
   const sidebarCollapsed = useSettingsStore((state) => state.sidebarCollapsed);
+  const selectedPluginId = useSettingsStore((state) => state.selectedPluginId);
+  const chatWindow = useLanChatStore((state) => state.window);
+  const restoreChatWindow = useLanChatStore((state) => state.restoreWindow);
+  const addConversationUnread = useLanChatStore((state) => state.addConversationUnread);
+  const [lanSnapshot, setLanSnapshot] = useState<LanChatSnapshot | null>(null);
+  const seenLanMessageIds = useRef<Set<string>>(new Set());
+  const lanMonitorReady = useRef(false);
+  const desktopRuntime = isTauri();
   const appWindow = isTauri() ? getCurrentWindow() : null;
   const edgeSize = 6;
+  const selectedToolName = getById(selectedPluginId)?.name ?? selectedPluginId;
+  const statusItems = useMemo(
+    () =>
+      buildAppStatusItems({
+        selectedToolName,
+        sidebarCollapsed,
+        runtime: desktopRuntime ? "desktop" : "browser",
+        lanDevices: lanSnapshot?.devices.length ?? 0,
+        lanRooms: lanSnapshot?.rooms.length ?? 0,
+        lanTransfers: lanSnapshot?.transfers.length ?? 0,
+      }),
+    [desktopRuntime, lanSnapshot?.devices.length, lanSnapshot?.rooms.length, lanSnapshot?.transfers.length, selectedToolName, sidebarCollapsed],
+  );
+  const dockChat = shouldDockChatInStatusBar(chatWindow);
+
+  useEffect(() => {
+    if (!desktopRuntime) {
+      return undefined;
+    }
+    const refreshLanStatus = () => {
+      void startLanChatNetwork()
+        .then(getLanChatSnapshot)
+        .then(async (snapshot) => {
+          setLanSnapshot(snapshot);
+          const conversations = await listLanChatConversations();
+          const visibleConversation = useLanChatStore.getState().window.open && !useLanChatStore.getState().window.minimized
+            ? useLanChatStore.getState().window.activeConversationId
+            : undefined;
+          for (const conversation of conversations) {
+            const messages = await listLanChatMessages(conversation.id);
+            const unseen = messages.filter((item) => item.senderDeviceId !== snapshot.identity.deviceId && !seenLanMessageIds.current.has(item.id));
+            for (const item of messages) {
+              seenLanMessageIds.current.add(item.id);
+            }
+            if (lanMonitorReady.current && unseen.length > 0 && conversation.id !== visibleConversation) {
+              addConversationUnread(conversation.id, unseen.length);
+            }
+          }
+          lanMonitorReady.current = true;
+        })
+        .catch(() => undefined);
+    };
+    const startTimer = window.setTimeout(refreshLanStatus, 1800);
+    const timer = window.setInterval(refreshLanStatus, 5000);
+    return () => {
+      window.clearTimeout(startTimer);
+      window.clearInterval(timer);
+    };
+  }, [addConversationUnread, desktopRuntime]);
 
   const edgeOverlays: Array<{
     key: string;
@@ -101,6 +166,8 @@ export function AppShell() {
       <Titlebar />
       <Layout hasSider className="devnexus-layout__main">
         <Sidebar />
+        <LanChatWindowHost />
+        <DeveloperConsole />
         <Layout>
           <Content className="devnexus-layout__content">
             <div className="devnexus-layout__content-card">
@@ -108,22 +175,27 @@ export function AppShell() {
             </div>
           </Content>
           <Footer className="devnexus-layout__footer">
-            <Typography.Text type="secondary">
-              Sidebar:
-              <Tag color="blue">{sidebarCollapsed ? "64px" : "200px"}</Tag>
-            </Typography.Text>
-            <Typography.Text type="secondary">
-              Connection:
-              <Tag>Disconnected</Tag>
-            </Typography.Text>
-            <Typography.Text type="secondary">
-              Redis:
-              <Tag>Unknown</Tag>
-            </Typography.Text>
-            <Typography.Text type="secondary">
-              Latency:
-              <Tag>-- ms</Tag>
-            </Typography.Text>
+            <Space size={8} className="devnexus-layout__footer-status">
+              {statusItems.map((item) => (
+                <Typography.Text key={item.label} type="secondary" className="devnexus-layout__footer-status-item">
+                  {item.label}:
+                  <Tag>{item.value}</Tag>
+                </Typography.Text>
+              ))}
+            </Space>
+            {dockChat ? (
+              <Button
+                size="small"
+                type="text"
+                className="devnexus-layout__footer-chat"
+                icon={<MessageOutlined />}
+                onClick={restoreChatWindow}
+              >
+                <Badge count={chatWindow.unreadCount} size="small" overflowCount={99}>
+                  <span>LAN Chat</span>
+                </Badge>
+              </Button>
+            ) : null}
           </Footer>
         </Layout>
       </Layout>

@@ -1,4 +1,5 @@
 pub mod api_debugger;
+pub mod lan_chat;
 pub mod mongodb;
 pub mod mysql;
 pub mod mq;

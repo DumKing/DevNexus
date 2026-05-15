@@ -1,13 +1,17 @@
 mod crypto;
 mod db;
+mod dev_log;
 mod plugins;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             db::init::run(app.handle())?;
+            let handle = app.handle().clone();
+            dev_log::record(&handle, "info", "app", "DevNexus started", None);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -209,7 +213,28 @@ pub fn run() {
             plugins::mq::commands::cmd_mq_clear_history,
             plugins::mq::commands::cmd_mq_list_saved_messages,
             plugins::mq::commands::cmd_mq_save_message_template,
-            plugins::mq::commands::cmd_mq_delete_message_template
+            plugins::mq::commands::cmd_mq_delete_message_template,
+            dev_log::cmd_dev_log_list,
+            dev_log::cmd_dev_log_clear,
+            plugins::lan_chat::commands::cmd_lan_chat_get_device_identity,
+            plugins::lan_chat::commands::cmd_lan_chat_update_device_settings,
+            plugins::lan_chat::commands::cmd_lan_chat_start_network,
+            plugins::lan_chat::commands::cmd_lan_chat_list_devices,
+            plugins::lan_chat::commands::cmd_lan_chat_create_room,
+            plugins::lan_chat::commands::cmd_lan_chat_join_room,
+            plugins::lan_chat::commands::cmd_lan_chat_update_room,
+            plugins::lan_chat::commands::cmd_lan_chat_list_rooms,
+            plugins::lan_chat::commands::cmd_lan_chat_create_direct_conversation,
+            plugins::lan_chat::commands::cmd_lan_chat_list_conversations,
+            plugins::lan_chat::commands::cmd_lan_chat_send_message,
+            plugins::lan_chat::commands::cmd_lan_chat_send_file_message,
+            plugins::lan_chat::commands::cmd_lan_chat_list_messages,
+            plugins::lan_chat::commands::cmd_lan_chat_clear_conversation,
+            plugins::lan_chat::commands::cmd_lan_chat_create_transfer,
+            plugins::lan_chat::commands::cmd_lan_chat_list_transfers,
+            plugins::lan_chat::commands::cmd_lan_chat_clear_transfers,
+            plugins::lan_chat::commands::cmd_lan_chat_save_message_attachment,
+            plugins::lan_chat::commands::cmd_lan_chat_discovery_snapshot
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
