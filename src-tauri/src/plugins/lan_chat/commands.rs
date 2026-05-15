@@ -9,9 +9,10 @@ use uuid::Uuid;
 use super::discovery::{broadcast_presence, broadcast_room, send_udp_wire_message, send_wire_message, LanChatWireMessage};
 use super::types::{
     CreateDirectConversationRequest, CreateLanChatRoomRequest, CreateLanChatTransferRequest,
-    JoinLanChatRoomRequest, LanChatConversation, LanChatDevice, LanChatDeviceIdentity,
-    LanChatMessage, LanChatRoom, LanChatSnapshot, LanChatTransfer, SendLanChatFileRequest,
-    SendLanChatMessageRequest, UpdateLanChatDeviceRequest, UpdateLanChatRoomRequest,
+    JoinLanChatRoomRequest, LanChatConversation, LanChatCoordinatorDevice, LanChatDevice,
+    LanChatDeviceIdentity, LanChatMessage, LanChatRoom, LanChatSnapshot, LanChatTransfer,
+    SendLanChatFileRequest, SendLanChatMessageRequest, UpdateLanChatDeviceRequest,
+    UpdateLanChatRoomRequest,
 };
 
 const PUBLIC_ROOM_ID: &str = "public-lobby";
@@ -347,6 +348,73 @@ pub fn cmd_lan_chat_start_network(app_handle: tauri::AppHandle) -> Result<(), St
     let _ = ensure_identity(&app_handle)?;
     super::discovery::start(app_handle);
     Ok(())
+}
+
+#[tauri::command]
+pub fn cmd_lan_chat_suggest_lan_host() -> Result<Option<String>, String> {
+    let socket = std::net::UdpSocket::bind("0.0.0.0:0")
+        .map_err(|err| format!("failed to inspect local LAN host: {err}"))?;
+    socket
+        .connect("8.8.8.8:80")
+        .map_err(|err| format!("failed to inspect local LAN route: {err}"))?;
+    let addr = socket
+        .local_addr()
+        .map_err(|err| format!("failed to inspect local LAN address: {err}"))?;
+    let ip = addr.ip();
+    if ip.is_loopback() {
+        return Ok(None);
+    }
+    Ok(Some(ip.to_string()))
+}
+
+#[tauri::command]
+pub fn cmd_lan_chat_sync_coordinator_devices(
+    app_handle: tauri::AppHandle,
+    devices: Vec<LanChatCoordinatorDevice>,
+) -> Result<usize, String> {
+    let identity = ensure_identity(&app_handle)?;
+    let conn = open_db(&app_handle)?;
+    let now = Utc::now().to_rfc3339();
+    let mut synced = 0usize;
+
+    for device in devices {
+        let device_id = device.device_id.trim();
+        let nickname = device.nickname.trim();
+        let host = device.host.as_deref().map(str::trim).filter(|value| !value.is_empty());
+        if device_id.is_empty() || nickname.is_empty() || device_id == identity.device_id || host.is_none() || device.port == 0 {
+            continue;
+        }
+        let last_seen = device.last_seen.as_deref().unwrap_or(&now);
+        conn.execute(
+            "INSERT INTO lan_chat_devices
+             (id, device_id, nickname, host, port, online, is_local, last_seen, client_version, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, ?6, ?7, ?8, ?8)
+             ON CONFLICT(device_id) DO UPDATE SET nickname = excluded.nickname, host = excluded.host, port = excluded.port, online = 1, last_seen = excluded.last_seen, client_version = excluded.client_version, updated_at = excluded.updated_at",
+            params![
+                Uuid::new_v4().to_string(),
+                device_id,
+                nickname,
+                host,
+                device.port as i64,
+                last_seen,
+                device.client_version.as_deref(),
+                now,
+            ],
+        )
+        .map_err(|err| format!("failed to sync LAN Chat coordinator device: {err}"))?;
+        synced += 1;
+    }
+
+    if synced > 0 {
+        crate::dev_log::record(
+            &app_handle,
+            "info",
+            "lan-chat.coordinator",
+            "Synced LAN Chat devices from coordinator",
+            Some(format!("devices={synced}")),
+        );
+    }
+    Ok(synced)
 }
 
 #[tauri::command]

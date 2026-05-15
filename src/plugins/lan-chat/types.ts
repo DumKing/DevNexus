@@ -6,6 +6,15 @@ export interface LanChatDeviceIdentity {
   nicknameRequired: boolean;
 }
 
+export interface LanChatCoordinatorDevice {
+  deviceId: string;
+  nickname: string;
+  host?: string | null;
+  port: number;
+  clientVersion?: string | null;
+  lastSeen?: string | null;
+}
+
 export interface LanChatDevice {
   deviceId: string;
   nickname: string;

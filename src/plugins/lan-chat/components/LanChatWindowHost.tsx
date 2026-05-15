@@ -11,7 +11,7 @@ import {
   TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import { Button, Empty, Form, Input, InputNumber, List, Modal, Progress, Space, Tabs, Tag, Typography, message } from "antd";
+import { Button, Empty, Form, Input, InputNumber, List, Modal, Progress, Space, Switch, Tabs, Tag, Typography, message } from "antd";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 
@@ -27,10 +27,12 @@ import {
   sendLanChatFileMessage,
   sendLanChatMessage,
   startLanChatNetwork,
+  suggestLanChatHost,
+  syncLanChatCoordinatorDevices,
   updateLanChatDeviceSettings,
 } from "@/plugins/lan-chat/api";
 import { useLanChatStore } from "@/plugins/lan-chat/store/lan-chat";
-import type { LanChatConversation, LanChatDevice, LanChatDeviceIdentity, LanChatMessage, LanChatSnapshot, LanChatTransfer } from "@/plugins/lan-chat/types";
+import type { LanChatConversation, LanChatCoordinatorDevice, LanChatDevice, LanChatDeviceIdentity, LanChatMessage, LanChatSnapshot, LanChatTransfer } from "@/plugins/lan-chat/types";
 import { dockMinimizedWindow, formatDeviceId, formatLanEndpoint, formatTransferSize, parseLanEndpoint, LAN_CHAT_MODAL_Z_INDEX } from "@/plugins/lan-chat/utils/lan-chat";
 import { isDirectConversationOnline, isLanChatDeviceCurrentlyOnline, normalizeLanChatMessageType, parseLanChatMessageMetadata, resolveLanChatPreviewSource, resolveLanChatSenderName } from "@/plugins/lan-chat/utils/message-preview";
 
@@ -38,6 +40,7 @@ const { Text } = Typography;
 const MIN_WINDOW_WIDTH = 560;
 const MIN_WINDOW_HEIGHT = 420;
 const PUBLIC_ROOM_ID = "public-lobby";
+const COORDINATOR_SETTINGS_KEY = "devnexus.lanChat.coordinator";
 
 type DragMode = "move" | "resize-window" | "resize-left-pane" | "resize-right-pane";
 type WindowResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
@@ -53,6 +56,53 @@ interface DragSession {
   initialHeight: number;
   initialLeftPaneWidth: number;
   initialRightPaneWidth: number;
+}
+
+interface CoordinatorSettings {
+  enabled: boolean;
+  url: string;
+  token: string;
+  advertiseHost: string;
+}
+
+type CoordinatorStatus = "disabled" | "connecting" | "connected" | "disconnected" | "error";
+
+interface LanChatSettingsFormValues {
+  nickname: string;
+  port: number;
+  coordinatorEnabled?: boolean;
+  coordinatorUrl?: string;
+  coordinatorToken?: string;
+  coordinatorAdvertiseHost?: string;
+}
+
+function loadCoordinatorSettings(): CoordinatorSettings {
+  if (typeof window === "undefined") {
+    return { enabled: false, url: "", token: "", advertiseHost: "" };
+  }
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(COORDINATOR_SETTINGS_KEY) ?? "{}") as Partial<CoordinatorSettings>;
+    return {
+      enabled: Boolean(parsed.enabled),
+      url: parsed.url ?? "",
+      token: parsed.token ?? "",
+      advertiseHost: parsed.advertiseHost ?? "",
+    };
+  } catch {
+    return { enabled: false, url: "", token: "", advertiseHost: "" };
+  }
+}
+
+function saveCoordinatorSettings(settings: CoordinatorSettings) {
+  window.localStorage.setItem(COORDINATOR_SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function normalizeCoordinatorUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("ws://") || trimmed.startsWith("wss://")) return trimmed;
+  const scheme = trimmed.startsWith("https://") ? "wss://" : "ws://";
+  return scheme + trimmed.replace(/^https?:\/\//, "");
 }
 
 function getDirectPeerId(conversationId: string): string | null {
@@ -76,6 +126,7 @@ export function LanChatWindowHost() {
   const dragSession = useRef<DragSession | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const nicknameSetupInitialized = useRef(false);
+  const coordinatorSocketRef = useRef<WebSocket | null>(null);
   const [snapshot, setSnapshot] = useState<LanChatSnapshot | null>(null);
   const [conversations, setConversations] = useState<LanChatConversation[]>([]);
   const [messages, setMessages] = useState<LanChatMessage[]>([]);
@@ -88,6 +139,8 @@ export function LanChatWindowHost() {
   const [loading, setLoading] = useState(false);
   const [leftPaneWidth, setLeftPaneWidth] = useState(220);
   const [rightPaneWidth, setRightPaneWidth] = useState(240);
+  const [coordinatorSettings, setCoordinatorSettings] = useState<CoordinatorSettings>(() => loadCoordinatorSettings());
+  const [coordinatorStatus, setCoordinatorStatus] = useState<CoordinatorStatus>(coordinatorSettings.enabled ? "disconnected" : "disabled");
   const [form] = Form.useForm();
 
   const identity: LanChatDeviceIdentity | null = snapshot?.identity ?? null;
@@ -172,6 +225,85 @@ export function LanChatWindowHost() {
     }
     setSettingsOpen(true);
   }, [form, identity, nicknameSetupDismissed]);
+
+  useEffect(() => {
+    if (!settingsOpen || coordinatorSettings.advertiseHost) return;
+    void suggestLanChatHost()
+      .then((host) => {
+        if (!host || form.getFieldValue("coordinatorAdvertiseHost")) return;
+        form.setFieldsValue({ coordinatorAdvertiseHost: host });
+      })
+      .catch(() => undefined);
+  }, [coordinatorSettings.advertiseHost, form, settingsOpen]);
+
+  useEffect(() => {
+    if (!windowState.open || windowState.minimized || !identity || identity.nicknameRequired || !coordinatorSettings.enabled) {
+      setCoordinatorStatus(coordinatorSettings.enabled ? "disconnected" : "disabled");
+      return undefined;
+    }
+    const url = normalizeCoordinatorUrl(coordinatorSettings.url);
+    const advertiseHost = coordinatorSettings.advertiseHost.trim();
+    if (!url || !advertiseHost) {
+      setCoordinatorStatus("error");
+      return undefined;
+    }
+
+    let disposed = false;
+    let heartbeat: number | undefined;
+    let reconnect: number | undefined;
+
+    const register = (socket: WebSocket) => {
+      socket.send(JSON.stringify({
+        type: "register",
+        token: coordinatorSettings.token,
+        device: {
+          deviceId: identity.deviceId,
+          nickname: identity.nickname,
+          host: advertiseHost,
+          port: identity.port,
+          clientVersion: "0.9.3",
+        },
+      }));
+    };
+
+    const connect = () => {
+      setCoordinatorStatus("connecting");
+      const socket = new WebSocket(url);
+      coordinatorSocketRef.current = socket;
+      socket.onopen = () => {
+        setCoordinatorStatus("connected");
+        register(socket);
+        heartbeat = window.setInterval(() => register(socket), 5000);
+      };
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(String(event.data)) as { type?: string; devices?: LanChatCoordinatorDevice[] };
+          if (payload.type !== "snapshot" || !Array.isArray(payload.devices)) return;
+          void syncLanChatCoordinatorDevices(payload.devices).then((synced) => {
+            if (synced > 0) void refresh(false);
+          });
+        } catch {
+          setCoordinatorStatus("error");
+        }
+      };
+      socket.onerror = () => setCoordinatorStatus("error");
+      socket.onclose = () => {
+        if (heartbeat) window.clearInterval(heartbeat);
+        if (disposed) return;
+        setCoordinatorStatus("disconnected");
+        reconnect = window.setTimeout(connect, 5000);
+      };
+    };
+
+    connect();
+    return () => {
+      disposed = true;
+      if (heartbeat) window.clearInterval(heartbeat);
+      if (reconnect) window.clearTimeout(reconnect);
+      coordinatorSocketRef.current?.close();
+      coordinatorSocketRef.current = null;
+    };
+  }, [coordinatorSettings, identity, windowState.minimized, windowState.open]);
 
   if (!windowState.open || windowState.minimized) return null;
 
@@ -326,7 +458,15 @@ export function LanChatWindowHost() {
     await refresh();
   };
 
-  const handleSaveSettings = async (values: { nickname: string; port: number }) => {
+  const handleSaveSettings = async (values: LanChatSettingsFormValues) => {
+    const nextCoordinatorSettings = {
+      enabled: Boolean(values.coordinatorEnabled),
+      url: values.coordinatorUrl?.trim() ?? "",
+      token: values.coordinatorToken?.trim() ?? "",
+      advertiseHost: values.coordinatorAdvertiseHost?.trim() ?? "",
+    };
+    saveCoordinatorSettings(nextCoordinatorSettings);
+    setCoordinatorSettings(nextCoordinatorSettings);
     const nextIdentity = await updateLanChatDeviceSettings(values);
     setNicknameSetupDismissed(!nextIdentity.nicknameRequired);
     setSnapshot((current) => current ? { ...current, identity: nextIdentity } : current);
@@ -394,8 +534,9 @@ export function LanChatWindowHost() {
         </div>
         <Space size={4} onMouseDown={(event) => event.stopPropagation()}>
           <Tag color="green">v0.9.2</Tag>
+          <Tag color={coordinatorStatus === "connected" ? "blue" : coordinatorStatus === "disabled" ? "default" : "orange"}>WS {coordinatorStatus}</Tag>
           <Button size="small" type="text" icon={<ReloadOutlined />} loading={loading} onClick={() => void refresh()} />
-          <Button size="small" type="text" icon={<SettingOutlined />} onClick={() => { const currentNickname = form.getFieldValue("nickname") as string | undefined; form.setFieldsValue({ nickname: identity?.nicknameRequired ? currentNickname ?? "" : identity?.nickname, port: identity?.port ?? 45881 }); setSettingsOpen(true); }} />
+          <Button size="small" type="text" icon={<SettingOutlined />} onClick={() => { const currentNickname = form.getFieldValue("nickname") as string | undefined; form.setFieldsValue({ nickname: identity?.nicknameRequired ? currentNickname ?? "" : identity?.nickname, port: identity?.port ?? 45881, coordinatorEnabled: coordinatorSettings.enabled, coordinatorUrl: coordinatorSettings.url, coordinatorToken: coordinatorSettings.token, coordinatorAdvertiseHost: coordinatorSettings.advertiseHost }); setSettingsOpen(true); }} />
           <Button size="small" type="text" icon={<MinusOutlined />} onClick={minimizeWindow} />
           <Button size="small" type="text" icon={<CompressOutlined />} onClick={maximizeWindow} />
           <Button size="small" type="text" icon={<CloseOutlined />} onClick={closeWindow} />
@@ -446,6 +587,10 @@ export function LanChatWindowHost() {
           {identity ? <Form.Item label="Device ID"><Space><Text code>{formatDeviceId(identity.deviceId)}</Text><Button size="small" icon={<CopyOutlined />} onClick={() => void copyText(identity.deviceId, "Device ID copied")} /></Space></Form.Item> : null}
           <Form.Item name="nickname" label="Device nickname" rules={[{ required: true, message: "请输入一个便于别人识别的昵称" }]} extra="昵称会显示在群聊和私聊消息上，不再默认使用电脑名。"><Input placeholder="例如：研发同学" /></Form.Item>
           <Form.Item name="port" label="Listen port" rules={[{ required: true }]}><InputNumber min={1} max={65535} style={{ width: "100%" }} /></Form.Item>
+          <Form.Item name="coordinatorEnabled" label="WebSocket coordinator" valuePropName="checked"><Switch /></Form.Item>
+          <Form.Item name="coordinatorUrl" label="Coordinator URL" extra="只用于发现协调，聊天文本和文件仍然走局域网直连。"><Input placeholder="ws://server:45882/ws" /></Form.Item>
+          <Form.Item name="coordinatorToken" label="Coordinator token"><Input.Password placeholder="shared token" /></Form.Item>
+          <Form.Item name="coordinatorAdvertiseHost" label="Advertise LAN host" extra="本机会把这个局域网 IP 发给协调器，其他设备会用它直连本机。"><Input placeholder="192.168.1.23" /></Form.Item>
           <Text type="secondary">Download dir: {identity?.downloadDir ?? "Will be created on first use"}</Text>
         </Form>
       </Modal>

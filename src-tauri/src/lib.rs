@@ -227,6 +227,8 @@ pub fn run() {
             plugins::lan_chat::commands::cmd_lan_chat_get_device_identity,
             plugins::lan_chat::commands::cmd_lan_chat_update_device_settings,
             plugins::lan_chat::commands::cmd_lan_chat_start_network,
+            plugins::lan_chat::commands::cmd_lan_chat_suggest_lan_host,
+            plugins::lan_chat::commands::cmd_lan_chat_sync_coordinator_devices,
             plugins::lan_chat::commands::cmd_lan_chat_list_devices,
             plugins::lan_chat::commands::cmd_lan_chat_create_room,
             plugins::lan_chat::commands::cmd_lan_chat_join_room,

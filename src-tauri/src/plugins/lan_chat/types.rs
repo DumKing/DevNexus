@@ -19,6 +19,17 @@ pub struct UpdateLanChatDeviceRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct LanChatCoordinatorDevice {
+    pub device_id: String,
+    pub nickname: String,
+    pub host: Option<String>,
+    pub port: u16,
+    pub client_version: Option<String>,
+    pub last_seen: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LanChatDevice {
     pub device_id: String,
     pub nickname: String,

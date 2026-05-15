@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type {
   LanChatConversation,
+  LanChatCoordinatorDevice,
   LanChatDeviceIdentity,
   LanChatMessage,
   LanChatSnapshot,
@@ -21,6 +22,14 @@ export async function updateLanChatDeviceSettings(input: {
 
 export async function startLanChatNetwork(): Promise<void> {
   await invoke("cmd_lan_chat_start_network");
+}
+
+export async function suggestLanChatHost(): Promise<string | null> {
+  return invoke("cmd_lan_chat_suggest_lan_host");
+}
+
+export async function syncLanChatCoordinatorDevices(devices: LanChatCoordinatorDevice[]): Promise<number> {
+  return invoke("cmd_lan_chat_sync_coordinator_devices", { devices });
 }
 
 export async function createLanChatRoom(name: string, channel: "udp" | "tcp" = "udp"): Promise<void> {

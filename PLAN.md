@@ -1714,3 +1714,5 @@ src-tauri/src/plugins/s3/
 
 - 00:02 准备 v0.9.3 发布：同步 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json` 至 `0.9.3`，新增 `docs/releases/v0.9.3.md`，将 macOS Intel/Apple Silicon 打包、原生 macOS 标题栏、主窗口/Sidebar 贴底、LAN Chat 主题与昵称修复纳入发布说明。
 - 02:41 完成 v0.9.3 发布前验证：`npm test` 通过（10 个测试文件、33 个用例），`npm run build` 通过（保留 Vite 大 chunk 警告），`cargo check` 通过（保留既有 SSH `path` 未使用与 `RedisConnectionType` 未使用 warning）。
+- 03:08 启动 LAN Chat WebSocket 协调实验分支：新建 `experiment-lan-chat-ws-coordinator`，新增零依赖 `tools/lan-chat-coordinator.mjs` 协调服务、`docs/lan-chat-coordinator.md` 部署说明、前端协调器设置与连接状态、后端协调器设备同步命令；协调器仅维护在线设备快照，聊天文本/文件仍走现有局域网 P2P。
+- 04:28 完成 WebSocket 协调实验验证：`npm run build`、`cargo check`、`npm test` 通过；本地临时启动 `tools/lan-chat-coordinator.mjs`，`/health` 返回正常，并用 WebSocket 客户端完成 register 后收到包含测试设备的 snapshot。
