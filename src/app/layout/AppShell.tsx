@@ -10,7 +10,7 @@ import { buildAppStatusItems, shouldDockChatInStatusBar } from "@/app/layout/sta
 import { Titlebar } from "@/app/layout/Titlebar";
 import { PluginRouter } from "@/app/plugin-registry/PluginRouter";
 import { getById } from "@/app/plugin-registry/registry";
-import { isMacOsRuntime } from "@/app/runtime/platform";
+import { isMacOsRuntime, isMobileRuntime } from "@/app/runtime/platform";
 import { useSettingsStore } from "@/app/store/settings";
 import { getLanChatSnapshot, listLanChatConversations, listLanChatMessages, startLanChatNetwork } from "@/plugins/lan-chat/api";
 import { LanChatWindowHost } from "@/plugins/lan-chat/components/LanChatWindowHost";
@@ -38,7 +38,8 @@ export function AppShell() {
   const seenLanMessageIds = useRef<Set<string>>(new Set());
   const lanMonitorReady = useRef(false);
   const desktopRuntime = isTauri();
-  const nativeTitlebar = isMacOsRuntime();
+  const mobileRuntime = isMobileRuntime();
+  const nativeTitlebar = isMacOsRuntime() || mobileRuntime;
   const appWindow = desktopRuntime && !nativeTitlebar ? getCurrentWindow() : null;
   const edgeSize = 6;
   const selectedToolName = getById(selectedPluginId)?.name ?? selectedPluginId;
@@ -47,12 +48,12 @@ export function AppShell() {
       buildAppStatusItems({
         selectedToolName,
         sidebarCollapsed,
-        runtime: desktopRuntime ? "desktop" : "browser",
+        runtime: mobileRuntime ? "mobile" : desktopRuntime ? "desktop" : "browser",
         lanDevices: lanSnapshot?.devices.length ?? 0,
         lanRooms: lanSnapshot?.rooms.length ?? 0,
         lanTransfers: lanSnapshot?.transfers.length ?? 0,
       }),
-    [desktopRuntime, lanSnapshot?.devices.length, lanSnapshot?.rooms.length, lanSnapshot?.transfers.length, selectedToolName, sidebarCollapsed],
+    [desktopRuntime, lanSnapshot?.devices.length, lanSnapshot?.rooms.length, lanSnapshot?.transfers.length, mobileRuntime, selectedToolName, sidebarCollapsed],
   );
   const dockChat = shouldDockChatInStatusBar(chatWindow);
 
@@ -145,7 +146,11 @@ export function AppShell() {
   ];
 
   return (
-    <Layout className={nativeTitlebar ? "devnexus-layout devnexus-layout--native-titlebar" : "devnexus-layout"}>
+    <Layout className={[
+      "devnexus-layout",
+      nativeTitlebar ? "devnexus-layout--native-titlebar" : "",
+      mobileRuntime ? "devnexus-layout--mobile" : "",
+    ].filter(Boolean).join(" ")}>
       {appWindow &&
         edgeOverlays.map((item) => (
           <div

@@ -1718,3 +1718,4 @@ src-tauri/src/plugins/s3/
 ### 2026-05-17
 
 - 16:25 启动手机端打包实验分支：从 `main` 新建 `experiment-mobile-packaging`，新增 Android/iOS Tauri mobile 初始化、开发和构建 npm scripts，并新增 `docs/mobile-packaging.md` 记录 Android/iOS 工具链要求、首次 init/build 命令和建议的移动端功能收敛范围；暂不提交 Tauri 生成的平台工程。
+- 22:33 继续手机端适配与自动打包：新增 `build-mobile.yml`，推送 `experiment-mobile-packaging` 或手动触发时自动初始化并构建 Android aarch64 APK/AAB 与 iOS aarch64 simulator app；前端增加 mobile runtime 识别，手机宽度下隐藏桌面 titlebar/resize/footer，Sidebar 改为底部导航，LAN Chat 改为全屏触控面板，并更新移动端打包文档。`npm run build`、`cargo check`、`npm test` 均通过。

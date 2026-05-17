@@ -14,9 +14,11 @@
     "mobile:android:init": "tauri android init",
     "mobile:android:dev": "tauri android dev",
     "mobile:android:build": "tauri android build",
+    "mobile:android:build:ci": "tauri android init --ci && tauri android build --ci --apk --aab --target aarch64",
     "mobile:ios:init": "tauri ios init",
     "mobile:ios:dev": "tauri ios dev",
-    "mobile:ios:build": "tauri ios build"
+    "mobile:ios:build": "tauri ios build",
+    "mobile:ios:build:ci": "tauri ios init --ci && tauri ios build --ci --target aarch64-sim"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",

@@ -970,3 +970,156 @@ body,
 [data-theme="dark"] .devnexus-lan-chat-window__pane-divider:hover::before {
   background: rgba(96, 165, 250, 0.78);
 }
+
+@media (max-width: 768px), (pointer: coarse) and (max-width: 900px) {
+  html,
+  body,
+  #root,
+  .devnexus-layout {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+
+  .devnexus-layout__main,
+  .devnexus-layout--native-titlebar .devnexus-layout__main {
+    height: 100%;
+    flex-direction: column-reverse;
+  }
+
+  .devnexus-layout__main > .ant-layout {
+    min-height: 0;
+  }
+
+  .devnexus-sidebar {
+    width: 100%;
+    height: 64px;
+    flex: 0 0 64px;
+    order: -1;
+    border-right: 0;
+    border-top: 1px solid var(--devnexus-border-color, #e5e6eb);
+    padding: 7px 8px max(7px, env(safe-area-inset-bottom));
+    gap: 8px;
+    flex-direction: row;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .devnexus-sidebar--collapsed {
+    width: 100%;
+    flex-basis: 64px;
+  }
+
+  .devnexus-sidebar__top {
+    display: none;
+  }
+
+  .devnexus-sidebar__plugins {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-top: 0;
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .devnexus-sidebar__plugins::-webkit-scrollbar {
+    display: none;
+  }
+
+  .devnexus-sidebar__group,
+  .devnexus-sidebar__plugins > div {
+    flex: 0 0 auto;
+  }
+
+  .devnexus-sidebar__group-items {
+    display: none;
+  }
+
+  .devnexus-sidebar__plugin-button,
+  .devnexus-sidebar__group-button,
+  .devnexus-sidebar__utility-button {
+    width: 48px;
+    height: 48px;
+    padding-inline: 0 !important;
+    justify-content: center;
+    border-radius: 14px;
+  }
+
+  .devnexus-sidebar__plugin-label,
+  .devnexus-sidebar__group-chevron,
+  .devnexus-sidebar__utility-button span:not(.anticon) {
+    display: none;
+  }
+
+  .devnexus-sidebar__bottom {
+    flex: 0 0 auto;
+    margin-top: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+
+  .devnexus-layout__content {
+    padding: 8px;
+  }
+
+  .devnexus-layout__footer {
+    display: none;
+  }
+
+  .devnexus-lan-chat-window {
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    border-radius: 0;
+    border: 0;
+    z-index: 10000;
+  }
+
+  .devnexus-lan-chat-window__header {
+    height: auto;
+    min-height: 56px;
+    padding: max(10px, env(safe-area-inset-top)) 10px 10px;
+    cursor: default;
+  }
+
+  .devnexus-lan-chat-window__header > div:first-child .ant-typography {
+    max-width: 58vw;
+  }
+
+  .devnexus-lan-chat-window__body {
+    height: calc(100% - 64px);
+    grid-template-columns: 1fr;
+    grid-template-rows: 132px minmax(0, 1fr);
+  }
+
+  .devnexus-lan-chat-window__sessions {
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  .devnexus-lan-chat-window__sessions .ant-list {
+    overflow-x: auto;
+  }
+
+  .devnexus-lan-chat-window__pane-divider,
+  .devnexus-lan-chat-window__meta,
+  .devnexus-lan-chat-window__resize-handle {
+    display: none;
+  }
+
+  .devnexus-lan-chat-window__chat-title {
+    padding: 10px;
+  }
+
+  .devnexus-lan-chat-window__messages {
+    padding: 10px;
+  }
+
+  .devnexus-lan-chat-window__composer {
+    padding: 8px;
+    grid-template-columns: minmax(0, 1fr) 40px 44px;
+  }
+}

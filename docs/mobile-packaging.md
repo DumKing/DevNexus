@@ -41,6 +41,13 @@ npm run mobile:android:build
 
 Tauri will generate Android project files under `src-tauri/gen/android` after initialization.
 
+CI uses:
+
+```bash
+npm run mobile:android:init -- --ci
+npm run mobile:android:build -- --ci --apk --aab --target aarch64
+```
+
 ## First-Time iOS Setup
 
 ```bash
@@ -57,6 +64,26 @@ npm run mobile:ios:build
 
 Tauri will generate iOS project files under `src-tauri/gen/apple` after initialization.
 
+CI currently builds the iOS simulator target so it can run without Apple signing secrets:
+
+```bash
+npm run mobile:ios:init -- --ci
+npm run mobile:ios:build -- --ci --target aarch64-sim
+```
+
+For a real device IPA, add Apple signing material to GitHub Actions and switch the build target/export method to the signing profile you want to ship.
+
+## GitHub Actions
+
+`.github/workflows/build-mobile.yml` runs automatically when `experiment-mobile-packaging` is pushed and can also be started manually.
+
+It produces:
+
+- Android aarch64 APK/AAB artifacts
+- iOS aarch64 simulator app artifacts
+
+The Android job runs on Ubuntu with Java, Android SDK, Rust, and Node. The iOS job runs on macOS with Xcode, Rust, and Node.
+
 ## Recommended Mobile Scope
 
 For the first usable mobile build, keep the surface small:
@@ -72,6 +99,14 @@ Defer or hide until tested:
 - Local file server attachment sharing
 - Desktop-specific window controls
 - Large database table views without mobile layout work
+
+## Current Mobile UI Adjustments
+
+- Desktop titlebar and resize handles are disabled on mobile runtime.
+- Sidebar becomes a bottom navigation rail on phone-sized screens.
+- Footer status bar is hidden on phone-sized screens to preserve vertical space.
+- LAN Chat opens as a full-screen touch-oriented panel on mobile.
+- Viewport uses `viewport-fit=cover` for safe-area aware layouts.
 
 ## Notes
 

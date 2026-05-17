@@ -1,7 +1,7 @@
 export interface AppStatusInput {
   selectedToolName: string;
   sidebarCollapsed: boolean;
-  runtime: "desktop" | "browser";
+  runtime: "desktop" | "browser" | "mobile";
   lanDevices: number;
   lanRooms: number;
   lanTransfers: number;

@@ -1,0 +1,88 @@
+name: build-mobile
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment-mobile-packaging
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: android-aarch64
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Initialize Android project
+        run: npm run mobile:android:init -- --ci
+
+      - name: Build Android APK and AAB
+        run: npm run mobile:android:build -- --ci --apk --aab --target aarch64
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevNexus-android-aarch64
+          path: |
+            src-tauri/gen/android/app/build/outputs/**/*.apk
+            src-tauri/gen/android/app/build/outputs/**/*.aab
+          if-no-files-found: error
+
+  ios-simulator:
+    name: ios-aarch64-simulator
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Initialize iOS project
+        run: npm run mobile:ios:init -- --ci
+
+      - name: Build iOS simulator app
+        run: npm run mobile:ios:build -- --ci --target aarch64-sim
+
+      - name: Upload iOS simulator artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevNexus-ios-aarch64-simulator
+          path: |
+            src-tauri/gen/apple/**/*.app
+            src-tauri/gen/apple/**/*.ipa
+          if-no-files-found: warn
