@@ -84,19 +84,22 @@ It produces:
 
 The Android job runs on Ubuntu with Java, Android SDK, Rust, and Node. The iOS job runs on macOS with Xcode, Rust, and Node.
 
+The mobile build uses a reduced Rust backend so Android/iOS do not compile the desktop-only plugin dependency graph. This avoids native desktop dependencies such as OpenSSL, librdkafka, and libcurl blocking mobile CI before the mobile product surface is ready.
+
 ## Recommended Mobile Scope
 
 For the first usable mobile build, keep the surface small:
 
-- API Debugger basics
 - LAN Chat text messaging
 - WebSocket-assisted LAN discovery
-- Read-only or lightweight network tools
+- Read-only or lightweight network tools after mobile backend review
 
 Defer or hide until tested:
 
+- API Debugger native request sending
 - SSH terminal
 - Local file server attachment sharing
+- Redis, S3, MongoDB, MySQL, and MQ desktop plugin surfaces
 - Desktop-specific window controls
 - Large database table views without mobile layout work
 

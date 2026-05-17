@@ -9,5 +9,6 @@ export interface PluginManifest {
   version: string;
   component: PluginComponent;
   sidebarOrder: number;
+  mobileSupported?: boolean;
   showInSidebar?: boolean;
 }

@@ -95,54 +95,56 @@ export function Sidebar() {
         />
       </div>
       <nav className="devnexus-sidebar__plugins">
-        <div className="devnexus-sidebar__group">
-          {sidebarCollapsed ? (
-            <Dropdown
-              trigger={["click"]}
-              placement="bottomRight"
-              menu={{
-                items: dbMenuItems,
-                selectedKeys: activeDbPlugin ? [activeDbPlugin.id] : [],
-                onClick: ({ key }) => setSelectedPluginId(String(key)),
-              }}
-            >
-              <Tooltip placement="right" title={activeDbPlugin ? `DB Tools: ${activeDbPlugin.name}` : "DB Tools"}>
+        {dbPlugins.length > 0 ? (
+          <div className="devnexus-sidebar__group">
+            {sidebarCollapsed ? (
+              <Dropdown
+                trigger={["click"]}
+                placement="bottomRight"
+                menu={{
+                  items: dbMenuItems,
+                  selectedKeys: activeDbPlugin ? [activeDbPlugin.id] : [],
+                  onClick: ({ key }) => setSelectedPluginId(String(key)),
+                }}
+              >
+                <Tooltip placement="right" title={activeDbPlugin ? `DB Tools: ${activeDbPlugin.name}` : "DB Tools"}>
+                  <Button
+                    className={clsx("devnexus-sidebar__group-button", {
+                      "devnexus-sidebar__group-button--active": dbGroupActive,
+                    })}
+                    type="text"
+                    icon={activeDbPlugin?.icon ?? <DatabaseOutlined />}
+                  />
+                </Tooltip>
+              </Dropdown>
+            ) : (
+              <>
                 <Button
                   className={clsx("devnexus-sidebar__group-button", {
                     "devnexus-sidebar__group-button--active": dbGroupActive,
                   })}
                   type="text"
-                  icon={activeDbPlugin?.icon ?? <DatabaseOutlined />}
-                />
-              </Tooltip>
-            </Dropdown>
-          ) : (
-            <>
-              <Button
-                className={clsx("devnexus-sidebar__group-button", {
-                  "devnexus-sidebar__group-button--active": dbGroupActive,
-                })}
-                type="text"
-                icon={<DatabaseOutlined />}
-                onClick={() => setDbToolsCollapsed(!dbToolsCollapsed)}
-              >
-                <span className="devnexus-sidebar__plugin-label">DB Tools</span>
-                <DownOutlined
-                  className={clsx("devnexus-sidebar__group-chevron", {
-                    "devnexus-sidebar__group-chevron--collapsed": dbToolsCollapsed,
-                  })}
-                />
-              </Button>
-              {dbToolsCollapsed ? null : (
-                <div className="devnexus-sidebar__group-items">
-                  {dbPlugins.map((plugin) => (
-                    <div key={plugin.id}>{renderPluginButton(plugin, true)}</div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                  icon={<DatabaseOutlined />}
+                  onClick={() => setDbToolsCollapsed(!dbToolsCollapsed)}
+                >
+                  <span className="devnexus-sidebar__plugin-label">DB Tools</span>
+                  <DownOutlined
+                    className={clsx("devnexus-sidebar__group-chevron", {
+                      "devnexus-sidebar__group-chevron--collapsed": dbToolsCollapsed,
+                    })}
+                  />
+                </Button>
+                {dbToolsCollapsed ? null : (
+                  <div className="devnexus-sidebar__group-items">
+                    {dbPlugins.map((plugin) => (
+                      <div key={plugin.id}>{renderPluginButton(plugin, true)}</div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        ) : null}
         {topLevelPlugins.map((plugin) => (
           <div key={plugin.id}>{renderPluginButton(plugin)}</div>
         ))}
