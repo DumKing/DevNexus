@@ -71,7 +71,7 @@ npm run mobile:ios:init -- --ci
 npm run build
 cd src-tauri/gen/apple
 rustup target add aarch64-apple-ios
-xcodebuild -project devnexus.xcodeproj -scheme devnexus_iOS -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" build
+xcodebuild -project devnexus.xcodeproj -scheme devnexus_iOS -configuration release -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" build
 ```
 
 The workflow packages the generated device `.app` into `DevNexus-ios-aarch64-unsigned.ipa` by creating a standard `Payload/<App>.app` archive. This artifact is for later manual signing only and cannot be installed on an iPhone until it is signed with a certificate and provisioning profile that match the app bundle ID.

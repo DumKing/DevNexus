@@ -85,7 +85,7 @@ jobs:
           xcodebuild \
             -project devnexus.xcodeproj \
             -scheme devnexus_iOS \
-            -configuration Release \
+            -configuration release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build/ios-derived-data \
