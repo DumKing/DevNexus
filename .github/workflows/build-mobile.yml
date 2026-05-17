@@ -75,13 +75,27 @@ jobs:
       - name: Initialize iOS project
         run: npm run mobile:ios:init -- --ci
 
-      - name: Build frontend
-        run: npm run build
-
       - name: Build unsigned iOS app
-        working-directory: src-tauri/gen/apple
         run: |
           rustup target add aarch64-apple-ios
+          npm run mobile:ios:build -- --ci --target aarch64 --open &
+          TAURI_IOS_BUILD_PID="$!"
+          trap 'kill "$TAURI_IOS_BUILD_PID" 2>/dev/null || true' EXIT
+
+          ADDR_FILE="${TMPDIR:-/tmp/}com.devnexus.desktop-server-addr"
+          for _ in $(seq 1 120); do
+            if [ -s "$ADDR_FILE" ]; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [ ! -s "$ADDR_FILE" ]; then
+            echo "::error::Tauri iOS build did not expose its Xcode options server"
+            exit 1
+          fi
+
+          cd src-tauri/gen/apple
           xcodebuild \
             -project devnexus.xcodeproj \
             -scheme devnexus_iOS \

@@ -68,10 +68,15 @@ CI builds an unsigned iOS device IPA:
 
 ```bash
 npm run mobile:ios:init -- --ci
-npm run build
-cd src-tauri/gen/apple
 rustup target add aarch64-apple-ios
+npm run mobile:ios:build -- --ci --target aarch64 --open &
+TAURI_IOS_BUILD_PID="$!"
+# Wait for Tauri's Xcode options server addr file before running xcodebuild.
+ADDR_FILE="${TMPDIR:-/tmp/}com.devnexus.desktop-server-addr"
+while [ ! -s "$ADDR_FILE" ]; do sleep 1; done
+cd src-tauri/gen/apple
 xcodebuild -project devnexus.xcodeproj -scheme devnexus_iOS -configuration release -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" build
+kill "$TAURI_IOS_BUILD_PID"
 ```
 
 The workflow packages the generated device `.app` into `DevNexus-ios-aarch64-unsigned.ipa` by creating a standard `Payload/<App>.app` archive. This artifact is for later manual signing only and cannot be installed on an iPhone until it is signed with a certificate and provisioning profile that match the app bundle ID.
