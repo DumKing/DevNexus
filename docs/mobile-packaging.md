@@ -64,14 +64,16 @@ npm run mobile:ios:build
 
 Tauri will generate iOS project files under `src-tauri/gen/apple` after initialization.
 
-CI currently builds the iOS simulator target so it can run without Apple signing secrets:
+CI builds an unsigned iOS device IPA:
 
 ```bash
 npm run mobile:ios:init -- --ci
-npm run mobile:ios:build -- --ci --target aarch64-sim
+npm run mobile:ios:build -- --ci --target aarch64 -- CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
 ```
 
-For a real device IPA, add Apple signing material to GitHub Actions and switch the build target/export method to the signing profile you want to ship.
+The workflow packages the generated device `.app` into `DevNexus-ios-aarch64-unsigned.ipa` by creating a standard `Payload/<App>.app` archive. This artifact is for later manual signing only and cannot be installed on an iPhone until it is signed with a certificate and provisioning profile that match the app bundle ID.
+
+The provisioning profile used when re-signing must match `src-tauri/tauri.conf.json` `identifier`, currently `com.devnexus.desktop`.
 
 ## GitHub Actions
 
@@ -80,7 +82,7 @@ For a real device IPA, add Apple signing material to GitHub Actions and switch t
 It produces:
 
 - Android aarch64 APK/AAB artifacts
-- iOS aarch64 simulator app artifacts
+- iOS aarch64 unsigned IPA artifact for manual signing
 
 The Android job runs on Ubuntu with Java, Android SDK, Rust, and Node. The iOS job runs on macOS with Xcode, Rust, and Node.
 

@@ -18,7 +18,7 @@
     "mobile:ios:init": "tauri ios init",
     "mobile:ios:dev": "tauri ios dev",
     "mobile:ios:build": "tauri ios build",
-    "mobile:ios:build:ci": "tauri ios init --ci && tauri ios build --ci --target aarch64-sim"
+    "mobile:ios:build:ci": "tauri ios init --ci && tauri ios build --ci --target aarch64 -- CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",

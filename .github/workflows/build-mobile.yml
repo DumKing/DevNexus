@@ -53,8 +53,8 @@ jobs:
             src-tauri/gen/android/app/build/outputs/**/*.aab
           if-no-files-found: error
 
-  ios-simulator:
-    name: ios-aarch64-simulator
+  ios-ipa:
+    name: ios-aarch64-unsigned-ipa
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -75,14 +75,26 @@ jobs:
       - name: Initialize iOS project
         run: npm run mobile:ios:init -- --ci
 
-      - name: Build iOS simulator app
-        run: npm run mobile:ios:build -- --ci --target aarch64-sim
+      - name: Build unsigned iOS app
+        run: npm run mobile:ios:build -- --ci --target aarch64 -- CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
 
-      - name: Upload iOS simulator artifacts
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH="$(find src-tauri/gen/apple -type d -name '*.app' | head -n 1)"
+          if [ -z "$APP_PATH" ]; then
+            echo "::error::No iOS .app bundle was produced"
+            exit 1
+          fi
+          rm -rf unsigned-ipa
+          mkdir -p unsigned-ipa/Payload
+          cp -R "$APP_PATH" unsigned-ipa/Payload/
+          ditto -c -k --keepParent unsigned-ipa/Payload DevNexus-ios-aarch64-unsigned.ipa
+          ls -lh DevNexus-ios-aarch64-unsigned.ipa
+
+      - name: Upload unsigned iOS IPA artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: DevNexus-ios-aarch64-simulator
+          name: DevNexus-ios-aarch64-unsigned-ipa
           path: |
-            src-tauri/gen/apple/**/*.app
-            src-tauri/gen/apple/**/*.ipa
-          if-no-files-found: warn
+            DevNexus-ios-aarch64-unsigned.ipa
+          if-no-files-found: error
