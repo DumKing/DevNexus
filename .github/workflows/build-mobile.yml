@@ -83,7 +83,7 @@ jobs:
         run: |
           rustup target add aarch64-apple-ios
           xcodebuild \
-            -workspace devnexus.xcworkspace \
+            -project devnexus.xcodeproj \
             -scheme devnexus_iOS \
             -configuration Release \
             -sdk iphoneos \
