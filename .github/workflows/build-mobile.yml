@@ -75,12 +75,29 @@ jobs:
       - name: Initialize iOS project
         run: npm run mobile:ios:init -- --ci
 
+      - name: Build frontend
+        run: npm run build
+
       - name: Build unsigned iOS app
-        run: npm run mobile:ios:build -- --ci --target aarch64 -- CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
+        working-directory: src-tauri/gen/apple
+        run: |
+          rustup target add aarch64-apple-ios
+          xcodebuild \
+            -workspace devnexus.xcworkspace \
+            -scheme devnexus_iOS \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/ios-derived-data \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build
 
       - name: Package unsigned IPA
         run: |
-          APP_PATH="$(find src-tauri/gen/apple -type d -name '*.app' | head -n 1)"
+          APP_PATH="$(find src-tauri/gen/apple/build/ios-derived-data/Build/Products -type d -name '*.app' | head -n 1)"
           if [ -z "$APP_PATH" ]; then
             echo "::error::No iOS .app bundle was produced"
             exit 1
