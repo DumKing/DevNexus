@@ -1714,3 +1714,7 @@ src-tauri/src/plugins/s3/
 
 - 00:02 准备 v0.9.3 发布：同步 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json` 至 `0.9.3`，新增 `docs/releases/v0.9.3.md`，将 macOS Intel/Apple Silicon 打包、原生 macOS 标题栏、主窗口/Sidebar 贴底、LAN Chat 主题与昵称修复纳入发布说明。
 - 02:41 完成 v0.9.3 发布前验证：`npm test` 通过（10 个测试文件、33 个用例），`npm run build` 通过（保留 Vite 大 chunk 警告），`cargo check` 通过（保留既有 SSH `path` 未使用与 `RedisConnectionType` 未使用 warning）。
+
+### 2026-05-17
+
+- 16:25 启动手机端打包实验分支：从 `main` 新建 `experiment-mobile-packaging`，新增 Android/iOS Tauri mobile 初始化、开发和构建 npm scripts，并新增 `docs/mobile-packaging.md` 记录 Android/iOS 工具链要求、首次 init/build 命令和建议的移动端功能收敛范围；暂不提交 Tauri 生成的平台工程。

@@ -10,7 +10,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "mobile:android:init": "tauri android init",
+    "mobile:android:dev": "tauri android dev",
+    "mobile:android:build": "tauri android build",
+    "mobile:ios:init": "tauri ios init",
+    "mobile:ios:dev": "tauri ios dev",
+    "mobile:ios:build": "tauri ios build"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
