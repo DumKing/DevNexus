@@ -17,6 +17,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Run a single test file: `npx vitest run tests/app/plugin-registry/registry.test.ts`
 
+## Release Notes
+
+Keep app versions synchronized across `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. Release note files must be named `docs/releases/vX.Y.Z.md` because the GitHub release workflow reads the file matching the pushed tag name.
+
 ## Architecture
 
 ### Plugin System
