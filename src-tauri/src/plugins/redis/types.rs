@@ -2,14 +2,6 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum RedisConnectionType {
-    Standalone,
-    Sentinel,
-    Cluster,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct RedisServerInfo {
     pub version: String,
     pub mode: String,

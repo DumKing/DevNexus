@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Empty,
+  Flex,
   Input,
   Modal,
   Popconfirm,
@@ -126,7 +127,19 @@ export function ObjectBrowser() {
 
   if (!activeConnId || !bucket) {
     return (
-      <Card title="Objects">
+      <Card
+        title="Objects"
+        style={{ flex: 1, minHeight: 0 }}
+        styles={{
+          body: {
+            minHeight: 0,
+            height: "calc(100% - 57px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        }}
+      >
         <Empty description="Select a bucket first" />
       </Card>
     );
@@ -134,6 +147,16 @@ export function ObjectBrowser() {
 
   return (
     <Card
+      style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
+      styles={{
+        body: {
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        },
+      }}
       title={
         <Space>
           <Typography.Text strong>Objects</Typography.Text>
@@ -193,7 +216,7 @@ export function ObjectBrowser() {
         </Space>
       }
     >
-      <Space direction="vertical" style={{ width: "100%" }}>
+      <Flex vertical gap={12} style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <Breadcrumb
           items={[
             { title: bucket, onClick: () => openFolder("") },
@@ -231,6 +254,7 @@ export function ObjectBrowser() {
           rows={rows}
           loading={loading}
           viewMode={viewMode}
+          style={{ flex: 1, minHeight: 0 }}
           selectedKeys={selectedKeys}
           onSelectKeys={setSelectedKeys}
           onOpenFolder={openFolder}
@@ -278,10 +302,9 @@ export function ObjectBrowser() {
             })
           }
         />
-      </Space>
-      {nextToken ? (
-        <div style={{ marginTop: 12 }}>
+        {nextToken ? (
           <Button
+            style={{ alignSelf: "flex-start" }}
             onClick={() =>
               void listObjects({
                 connId: activeConnId,
@@ -294,8 +317,8 @@ export function ObjectBrowser() {
           >
             Load More
           </Button>
-        </div>
-      ) : null}
+        ) : null}
+      </Flex>
       <ObjectMetaDrawer
         open={metaOpen}
         meta={meta}

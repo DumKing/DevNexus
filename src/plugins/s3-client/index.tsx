@@ -48,7 +48,15 @@ function S3ClientRoot() {
           </Typography.Text>
         ) : null}
       </Space>
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
         {tab === "connections" ? <S3ConnectionList /> : null}
         {tab === "buckets" ? <BucketList /> : null}
         {tab === "objects" ? <ObjectBrowser /> : null}

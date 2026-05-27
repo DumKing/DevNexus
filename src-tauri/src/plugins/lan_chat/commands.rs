@@ -1,12 +1,16 @@
-use chrono::{Duration as ChronoDuration, Utc};
 use base64::Engine as _;
+use chrono::{Duration as ChronoDuration, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::OnceLock;
 use uuid::Uuid;
 
-use super::discovery::{broadcast_presence, broadcast_room, send_udp_wire_message, send_wire_message, LanChatWireMessage};
+use super::discovery::{
+    broadcast_presence, broadcast_room, send_udp_wire_message, send_wire_message,
+    LanChatWireMessage,
+};
 use super::types::{
     CreateDirectConversationRequest, CreateLanChatRoomRequest, CreateLanChatTransferRequest,
     JoinLanChatRoomRequest, LanChatConversation, LanChatDevice, LanChatDeviceIdentity,
@@ -20,7 +24,11 @@ const LAN_CHAT_UDP_SAFE_PAYLOAD_BYTES: usize = 48 * 1024;
 const LAN_CHAT_FILE_REF_CONTENT: &str = "__DEVNEXUS_LAN_CHAT_FILE_REF__";
 
 fn normalize_room_channel(value: Option<&str>) -> Result<String, String> {
-    match value.map(str::trim).filter(|item| !item.is_empty()).unwrap_or("udp") {
+    match value
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .unwrap_or("udp")
+    {
         "udp" => Ok("udp".to_string()),
         "tcp" => Ok("tcp".to_string()),
         other => Err(format!("unsupported LAN Chat room channel: {other}")),
@@ -107,7 +115,13 @@ fn generated_device_id() -> String {
 }
 
 fn infer_mime_type(path: &Path) -> String {
-    match path.extension().and_then(|value| value.to_str()).unwrap_or_default().to_ascii_lowercase().as_str() {
+    match path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "png" => "image/png",
         "jpg" | "jpeg" => "image/jpeg",
         "gif" => "image/gif",
@@ -145,7 +159,11 @@ fn file_server_port(chat_port: u16) -> u16 {
     chat_port.saturating_add(1)
 }
 
-fn migrate_local_device_id(conn: &Connection, old_device_id: &str, next_device_id: &str) -> Result<(), String> {
+fn migrate_local_device_id(
+    conn: &Connection,
+    old_device_id: &str,
+    next_device_id: &str,
+) -> Result<(), String> {
     if old_device_id == next_device_id {
         return Ok(());
     }
@@ -180,11 +198,16 @@ fn migrate_local_device_id(conn: &Connection, old_device_id: &str, next_device_i
 
 fn nickname_requires_setup(nickname: &str) -> bool {
     let value = nickname.trim();
-    value.is_empty() || value == default_nickname() || value == "DevNexus Device" || value == placeholder_nickname()
+    value.is_empty()
+        || value == default_nickname()
+        || value == "DevNexus Device"
+        || value == placeholder_nickname()
 }
 
 fn downloads_dir(app_handle: &tauri::AppHandle) -> Result<String, String> {
-    let dir = crate::db::init::data_dir(app_handle)?.join("lan-chat").join("downloads");
+    let dir = crate::db::init::data_dir(app_handle)?
+        .join("lan-chat")
+        .join("downloads");
     std::fs::create_dir_all(&dir)
         .map_err(|err| format!("failed to create LAN Chat downloads dir: {err}"))?;
     Ok(dir.to_string_lossy().to_string())
@@ -322,7 +345,9 @@ pub fn cmd_lan_chat_update_device_settings(
         return Err("nickname is required".to_string());
     }
     if nickname_requires_setup(request.nickname.trim()) {
-        return Err("please set a recognizable LAN Chat nickname instead of the computer name".to_string());
+        return Err(
+            "please set a recognizable LAN Chat nickname instead of the computer name".to_string(),
+        );
     }
     if request.port == 0 {
         return Err("port must be greater than 0".to_string());
@@ -350,7 +375,9 @@ pub fn cmd_lan_chat_start_network(app_handle: tauri::AppHandle) -> Result<(), St
 }
 
 #[tauri::command]
-pub fn cmd_lan_chat_list_devices(app_handle: tauri::AppHandle) -> Result<Vec<LanChatDevice>, String> {
+pub fn cmd_lan_chat_list_devices(
+    app_handle: tauri::AppHandle,
+) -> Result<Vec<LanChatDevice>, String> {
     let _ = ensure_identity(&app_handle)?;
     let conn = open_db(&app_handle)?;
     expire_stale_devices(&conn)?;
@@ -503,8 +530,16 @@ pub fn cmd_lan_chat_update_room(
         return Err("public room cannot be renamed or reconfigured".to_string());
     }
 
-    let next_name = request.name.as_deref().map(str::trim).filter(|value| !value.is_empty());
-    let next_channel = request.channel.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    let next_name = request
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let next_channel = request
+        .channel
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     if next_name.is_none() && next_channel.is_none() {
         return Err("room name or channel is required".to_string());
     }
@@ -671,7 +706,11 @@ pub fn cmd_lan_chat_list_conversations(
             id: format!("direct:{}", device.device_id),
             conversation_type: "direct".to_string(),
             title: device.nickname,
-            subtitle: if device.online { "Online P2P".to_string() } else { "Offline".to_string() },
+            subtitle: if device.online {
+                "Online P2P".to_string()
+            } else {
+                "Offline".to_string()
+            },
             unread_count: 0,
         });
 
@@ -702,8 +741,15 @@ pub fn cmd_lan_chat_send_message(
         )
         .optional()
         .map_err(|err| format!("failed to load LAN Chat peer endpoint: {err}"))?;
-        if endpoint.as_ref().and_then(|item| item.0.as_deref()).is_none() {
-            return Err("direct chat requires a discovered peer IP or a manually entered IP:Port".to_string());
+        if endpoint
+            .as_ref()
+            .and_then(|item| item.0.as_deref())
+            .is_none()
+        {
+            return Err(
+                "direct chat requires a discovered peer IP or a manually entered IP:Port"
+                    .to_string(),
+            );
         }
         endpoint
     } else {
@@ -731,11 +777,17 @@ pub fn cmd_lan_chat_send_message(
             )
             .map_err(|err| format!("failed to prepare LAN Chat room targets: {err}"))?;
         let targets = stmt
-            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as u16)))
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as u16))
+            })
             .map_err(|err| format!("failed to load LAN Chat room targets: {err}"))?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|err| format!("failed to map LAN Chat room targets: {err}"))?;
+        let mut seen = HashSet::new();
         targets
+            .into_iter()
+            .filter(|(host, port)| seen.insert((host.clone(), *port)))
+            .collect()
     } else {
         Vec::new()
     };
@@ -781,6 +833,7 @@ pub fn cmd_lan_chat_send_message(
         device_id: message.sender_device_id.clone(),
         nickname: identity.nickname,
         port: identity.port,
+        peers: Vec::new(),
         room_id: if message.conversation_type == "room" {
             Some(message.conversation_id.clone())
         } else {
@@ -1108,9 +1161,18 @@ pub fn cmd_lan_chat_save_message_attachment(
     }
     let metadata: Value = serde_json::from_str(&metadata_json).unwrap_or(Value::Null);
     if metadata.get("transferMode").and_then(Value::as_str) == Some("pull") {
-        let file_id = metadata.get("fileId").and_then(Value::as_str).ok_or_else(|| "attachment file id is missing".to_string())?;
-        let token = metadata.get("token").and_then(Value::as_str).ok_or_else(|| "attachment token is missing".to_string())?;
-        let file_port = metadata.get("filePort").and_then(Value::as_u64).unwrap_or(45882) as u16;
+        let file_id = metadata
+            .get("fileId")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "attachment file id is missing".to_string())?;
+        let token = metadata
+            .get("token")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "attachment token is missing".to_string())?;
+        let file_port = metadata
+            .get("filePort")
+            .and_then(Value::as_u64)
+            .unwrap_or(45882) as u16;
         if let Ok(local) = conn.query_row(
             "SELECT path FROM lan_chat_shared_files WHERE file_id = ?1 AND token = ?2 LIMIT 1",
             params![file_id, token],
@@ -1119,20 +1181,24 @@ pub fn cmd_lan_chat_save_message_attachment(
             std::fs::copy(local, &path)
                 .map_err(|err| format!("failed to copy local LAN Chat attachment: {err}"))?;
         } else {
-            let host = conn.query_row(
-                "SELECT host FROM lan_chat_devices WHERE device_id = ?1 LIMIT 1",
-                params![sender_device_id],
-                |row| row.get::<_, Option<String>>(0),
-            )
-            .optional()
-            .map_err(|err| format!("failed to load LAN Chat sender endpoint: {err}"))?
-            .flatten()
-            .ok_or_else(|| "sender is offline or has no known LAN address".to_string())?;
+            let host = conn
+                .query_row(
+                    "SELECT host FROM lan_chat_devices WHERE device_id = ?1 LIMIT 1",
+                    params![sender_device_id],
+                    |row| row.get::<_, Option<String>>(0),
+                )
+                .optional()
+                .map_err(|err| format!("failed to load LAN Chat sender endpoint: {err}"))?
+                .flatten()
+                .ok_or_else(|| "sender is offline or has no known LAN address".to_string())?;
             let url = format!("http://{host}:{file_port}/lan-chat/file/{file_id}?token={token}");
             let mut response = reqwest::blocking::get(url)
                 .map_err(|err| format!("failed to download LAN Chat attachment: {err}"))?;
             if !response.status().is_success() {
-                return Err(format!("failed to download LAN Chat attachment: HTTP {}", response.status()));
+                return Err(format!(
+                    "failed to download LAN Chat attachment: HTTP {}",
+                    response.status()
+                ));
             }
             let mut output = std::fs::File::create(&path)
                 .map_err(|err| format!("failed to create target attachment file: {err}"))?;

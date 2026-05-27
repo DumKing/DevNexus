@@ -1,4 +1,4 @@
-mod crypto;
+﻿mod crypto;
 mod db;
 mod dev_log;
 mod plugins;
@@ -11,6 +11,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
@@ -242,7 +243,19 @@ pub fn run() {
             plugins::lan_chat::commands::cmd_lan_chat_list_transfers,
             plugins::lan_chat::commands::cmd_lan_chat_clear_transfers,
             plugins::lan_chat::commands::cmd_lan_chat_save_message_attachment,
-            plugins::lan_chat::commands::cmd_lan_chat_discovery_snapshot
+            plugins::lan_chat::commands::cmd_lan_chat_discovery_snapshot,
+            plugins::confluence::commands::cmd_confluence_list_connections,
+            plugins::confluence::commands::cmd_confluence_save_connection,
+            plugins::confluence::commands::cmd_confluence_delete_connection,
+            plugins::confluence::commands::cmd_confluence_test_connection,
+            plugins::confluence::commands::cmd_confluence_list_spaces,
+            plugins::confluence::commands::cmd_confluence_list_pages,
+            plugins::confluence::commands::cmd_confluence_create_page,
+            plugins::confluence::commands::cmd_confluence_update_page,
+            plugins::confluence::commands::cmd_confluence_upload_attachment,
+            plugins::confluence::commands::cmd_confluence_record_publish_history,
+            plugins::confluence::commands::cmd_confluence_list_publish_history,
+            plugins::confluence::commands::cmd_confluence_delete_publish_history
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

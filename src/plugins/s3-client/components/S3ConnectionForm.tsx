@@ -205,8 +205,15 @@ export function S3ConnectionForm({
                   >
                     <Switch />
                   </Form.Item>
-                  <Form.Item label="Default Bucket" name="defaultBucket">
-                    <Input placeholder="optional-bucket-name" />
+                  <Form.Item
+                    label="Manual Buckets"
+                    name="defaultBucket"
+                    extra="Optional. Use this when the account cannot call ListBuckets, for example Aliyun OSS policies scoped to specific buckets. Separate multiple buckets with commas or new lines."
+                  >
+                    <Input.TextArea
+                      autoSize={{ minRows: 2, maxRows: 5 }}
+                      placeholder={"bucket-a\nbucket-b"}
+                    />
                   </Form.Item>
                 </>
               ),

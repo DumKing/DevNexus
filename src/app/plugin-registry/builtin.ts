@@ -1,5 +1,6 @@
 import { register } from "@/app/plugin-registry/registry";
 import { apiDebuggerPlugin } from "@/plugins/api-debugger";
+import { confluencePlugin } from "@/plugins/confluence";
 import { redisManagerPlugin } from "@/plugins/redis-manager";
 import { mongodbClientPlugin } from "@/plugins/mongodb-client";
 import { mysqlClientPlugin } from "@/plugins/mysql-client";
@@ -23,6 +24,7 @@ export function registerBuiltinPlugins(): void {
   register(networkToolsPlugin);
   register(apiDebuggerPlugin);
   register(mqClientPlugin);
+  register(confluencePlugin);
   initialized = true;
 }
 

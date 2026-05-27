@@ -1506,6 +1506,209 @@ src-tauri/src/plugins/s3/
 - [x] 运行 `cd src-tauri && cargo check`。
 - [x] 运行 `npm run tauri build -- --bundles nsis`。
 
+---
+
+# 第十期：Confluence Publisher 插件
+
+> 目标：新增 `confluence` 插件，支持本地 Markdown 文件编辑、实时转换为 Confluence Storage Format 并一键发布到 Confluence Server / Data Center。
+
+---
+
+## 第十期技术选型增量
+
+| 新增项 | 方案 | 说明 |
+|--------|------|------|
+| Markdown 解析 | `unified` + `remark-parse` + `remark-gfm` | 前端纯函数 AST 解析，无网络依赖，支持 GFM 扩展（表格/任务列表） |
+| 编辑器 | `@monaco-editor/react` | VS Code 同款编辑器，语法高亮、Markdown 自动补全 |
+| LaTeX 渲染 | `katex` | 公式渲染为 SVG，转 base64 图片上传到 Confluence |
+| 图表渲染 | `mermaid` | Mermaid 图表渲染为 SVG，转 base64 图片上传 |
+| HTML 输出 | `hast-util-to-html` | HAST → HTML 字符串，用于预览 |
+| Confluence API | `reqwest` (Rust) | 通过 REST v1 调用 Confluence Server/Data Center |
+| 认证 | Basic Auth + PAT Bearer | 普通账号使用 Basic，SSO/Personal Access Token 使用 `Authorization: Bearer <token>` |
+| 凭据存储 | SQLite + AES-256-GCM | 站点 URL、用户名、密码加密存储，与现有插件保持一致 |
+| 文件关联 | localStorage | 本地 .md 文件路径 → Confluence 页面 ID 映射 |
+
+---
+
+## 第十期目录结构增量
+
+```
+src/plugins/confluence/
+├── index.tsx                       # 插件入口（注册 manifest）
+├── types.ts                        # TypeScript 类型定义
+├── store/
+│   └── confluence.ts               # Zustand store（连接、编辑器状态、文件映射）
+├── utils/
+│   ├── converter.ts                # unified 转换管线（MD → Storage Format）
+│   └── file-mapping.ts             # localStorage 文件→页面映射
+├── components/
+│   ├── ConfluenceEditor.tsx        # 主布局（Monaco + 预览分屏）
+│   ├── ConnectionSettings.tsx      # 连接配置抽屉
+│   └── PublishDialog.tsx           # 发布弹窗（Space/Page 选择）
+
+src-tauri/src/plugins/confluence/
+├── mod.rs
+├── commands.rs                     # Tauri commands 暴露层
+├── client.rs                       # Confluence REST v1 HTTP 客户端
+└── types.rs                        # Serde 数据结构 + 连接配置
+```
+
+---
+
+## Phase 53：Confluence 插件脚手架与连接管理
+
+### 53.1 SQLite 扩展
+- [x] `db/init.rs` 新增建表 `confluence_connections`：
+  - 字段：`id`（UUID）、`label`、`base_url`、`username`、`password_encrypted`（AES-256-GCM）、`created_at`、`updated_at`
+
+### 53.2 Rust 后端 - 连接配置 CRUD
+- [x] 新增 `db/confluence_connection_repo.rs`：实现 `list/save/delete/get` 操作，password 字段加密存储
+- [x] `commands.rs` 暴露：
+  - [x] `cmd_confluence_list_connections() -> Vec<ConfluenceConnectionInfo>`
+  - [x] `cmd_confluence_save_connection(form) -> Result<String>`（返回 id）
+  - [x] `cmd_confluence_delete_connection(id) -> Result<()>`
+  - [x] `cmd_confluence_test_connection(form) -> Result<u64>`：调用 `GET /rest/api/space` 验证，返回耗时毫秒
+
+### 53.3 Rust 后端 - HTTP 客户端
+- [x] `client.rs`：封装 `reqwest` HTTP 客户端，支持 Basic Auth 与 Personal Access Token Bearer
+- [x] 从加密存储读取凭据，按认证方式构建 `Authorization: Basic base64(user:pass)` 或 `Authorization: Bearer <token>` 请求头
+- [x] 统一错误处理：网络错误、401 认证失败、超时、JSON 解析失败
+
+### 53.4 前端 - 插件注册与连接页
+- [x] 新增 `src/plugins/confluence/index.tsx` 并注册到 builtin plugins（`sidebarOrder: 9`）
+- [x] 新增 `types.ts`、`store/confluence.ts`
+- [x] 新增 `ConnectionSettings.tsx`：抽屉表单，字段 Site URL、用户名、密码/Token，测试连接按钮，保存（AES 加密）
+- [x] 连接状态管理：Zustand store 存储连接列表、当前活跃连接
+
+---
+
+## Phase 54：Markdown → Confluence Storage Format 转换
+
+### 54.1 转换管线
+- [x] `utils/converter.ts`：使用 `unified` + `remark-parse` + `remark-gfm` 解析 Markdown
+- [x] 实现 AST 节点 → Confluence Storage Format XML 的自定义编译器
+
+### 54.2 元素映射表
+- [x] 标题（h1-h6）→ `<h1>...</h1>`
+- [x] 粗体/斜体 → `<strong>` / `<em>`
+- [x] 行内代码 → `<code>`
+- [x] 围栏代码块 → `<ac:structured-macro ac:name="code">` + CDATA
+- [x] 链接 → `<a href="...">`
+- [x] 图片 → `<ac:image><ri:url ri:value="..."/></ac:image>`
+- [x] 表格 → `<table><tbody><tr><td>...</td></tr></tbody></table>`
+- [x] 任务列表 `- [x]` → Confluence 任务列表标签
+- [x] 引用块 → `<blockquote>`
+- [x] 分割线 → `<hr />`
+- [x] 有序/无序列表 → `<ol>` / `<ul>` + `<li>`
+
+### 54.3 高级元素
+- [x] 脚注 `[^1]` → Confluence 脚注宏
+- [x] TOC `[TOC]` → 自动生成目录结构
+
+---
+
+## Phase 55：Monaco 编辑器 + 预览 UI
+
+### 55.1 主布局
+- [x] `ConfluenceEditor.tsx`：左右分屏布局（Monaco 编辑器 50% + Confluence 预览 50%）
+- [x] 工具栏：打开文件、保存、连接设置入口、发布按钮
+- [x] 状态栏：当前文件路径 + 已关联 Confluence 页面信息
+
+### 55.2 Monaco 编辑器
+- [x] 集成 `@monaco-editor/react`，Markdown 语法高亮
+- [x] 支持打开本地 `.md` 文件（调用 Tauri dialog + fs API）
+- [x] 支持保存修改到原文件
+- [x] 编辑内容变更时自动触发转换，右侧实时预览
+
+### 55.3 Confluence 预览
+- [x] 将转换后的 Storage Format XML 渲染为 HTML 预览
+- [x] 预览区域显示 Confluence 风格样式
+- [x] 转换失败时在预览区显示错误信息，不崩溃
+
+---
+
+## Phase 56：Confluence API 集成
+
+### 56.1 Rust 后端 - API 命令
+- [x] `cmd_confluence_list_spaces(conn_id) -> Vec<SpaceInfo>`：`GET /rest/api/space?limit=200`
+- [x] `cmd_confluence_list_pages(conn_id, space_key, parent_id?) -> Vec<PageInfo>`：`GET /rest/api/content/{id}/child/page`
+- [x] `cmd_confluence_create_page(conn_id, space_key, title, content_xml, parent_id?) -> Result<PageInfo>`：`POST /rest/api/content`
+- [x] `cmd_confluence_update_page(conn_id, page_id, title, content_xml, version) -> Result<PageInfo>`：`PUT /rest/api/content/{id}`
+- [x] `cmd_confluence_upload_attachment(conn_id, page_id, file_path, content_type) -> Result<AttachmentInfo>`：`POST /rest/api/content/{id}/child/attachment`
+
+### 56.2 前端 - 发布弹窗
+- [x] `PublishDialog.tsx`：Modal 弹窗
+- [x] Space 下拉选择器（从 API 获取列表，支持搜索过滤）
+- [x] 父页面树形选择器（可选，默认为 Space 根）
+- [x] 页面标题输入（默认取文件名或 Markdown 第一个 H1）
+- [x] 模式识别：新建页面 / 更新已有页面（通过 file-mapping 判断）
+- [x] 发布/更新按钮，显示进度和结果
+
+### 56.3 发布流程
+- [x] 发布前验证：连接已配置、标题非空、Content 有效
+- [x] 发布时先上传附件（LaTeX/Mermaid 渲染图、本地图片引用），再提交页面内容
+- [x] 成功后更新 localStorage 文件映射，状态栏显示关联信息
+- [x] 失败时展示具体错误（401 认证失败、404 Space 不存在、网络超时等）
+
+---
+
+## Phase 57：文件管理与页面映射
+
+### 57.1 文件操作
+- [x] 打开 `.md` 文件：调用 Tauri 文件选择对话框，读取内容加载到 Monaco
+- [x] 保存到原文件：调用 Tauri fs API 写入
+- [x] 文件路径在标题栏/状态栏显示
+
+### 57.2 页面映射
+- [x] `utils/file-mapping.ts`：localStorage 存储 `Map<filePath, { spaceKey, pageId, pageTitle, version, lastPublished }>`
+- [x] 打开已关联文件时自动识别，发布按钮变为「更新页面」
+- [x] 映射列表管理：支持查看/删除已有映射
+
+---
+
+## Phase 58：附件处理
+
+### 58.1 LaTeX / Mermaid 渲染上传
+- [x] 前端用 `katex` 将 LaTeX 公式渲染为 SVG → base64
+- [x] 前端用 `mermaid` 将图表渲染为 SVG → base64
+- [x] 发布时先调用 `cmd_confluence_upload_attachment` 上传图片
+- [x] 替换 Storage Format XML 中的占位符为 `<ac:image>` 引用
+
+### 58.2 本地图片处理
+- [x] 解析 Markdown 中 `![alt](./local.png)` 引用
+- [x] 读取本地文件，作为附件上传到 Confluence 页面
+- [x] 替换路径为 Confluence 附件 URI
+
+---
+
+## Phase 59：文档、验证与发布准备
+
+- [x] 版本升至 `0.10.0`，同步更新 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`。
+- [x] 新增 `docs/releases/v0.10.0.md`。
+- [x] README 增加 Confluence Publisher 中英文说明。
+- [x] README 明确首版范围：Confluence Server/Data Center 支持，Markdown 基础+高级元素覆盖，本地文件编辑与发布。
+- [x] 新增或更新测试：插件注册、转换管线（元素映射矩阵）、连接配置加密/解密、API 请求构造、文件映射持久化。
+- [x] 更新 `PLAN.md` 开发进度，按日期和具体时间点记录。
+- [x] 运行 `npm test`。
+- [x] 运行 `npm run build`。
+- [x] 运行 `cd src-tauri && cargo check`。
+- [ ] 运行 `npm run tauri build -- --bundles nsis`。
+
+---
+
+## 第十期风险与应对
+
+| 风险 | 概率 | 应对 |
+|------|------|------|
+| Confluence Storage Format 复杂元素转换不完整 | 中 | 按元素优先级分批次覆盖，先保证基础元素 100%，高级元素逐步迭代 |
+| LaTeX/Mermaid 渲染为图片后体积过大 | 中 | 限制图片尺寸，压缩 base64，超过阈值的图片提示用户手动处理 |
+| Monaco Editor 打包体积大（~5MB） | 低 | Tauri 桌面环境下首次加载后浏览器缓存，不重复下载；后续可考虑 CodeMirror 备选 |
+| Confluence Server 版本差异导致 API 不兼容 | 中 | 测试连接时获取 Confluence 版本，对已知差异做适配；首版目标 Confluence 7.x+ |
+| Confluence 凭据安全风险 | 低 | Basic 密码/API Token 与 PAT 均经 AES-256-GCM 加密存 SQLite，密钥不离开本机，与 SSH/Redis 等插件安全级别一致 |
+| 大文档转换性能 | 低 | 前端 Web Worker 异步转换，不阻塞 UI；超过 50KB 的文档显示转换进度 |
+
+---
+
 ## 开发进度（实时）
 
 ### 2026-04-27
@@ -1714,3 +1917,39 @@ src-tauri/src/plugins/s3/
 
 - 00:02 准备 v0.9.3 发布：同步 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json` 至 `0.9.3`，新增 `docs/releases/v0.9.3.md`，将 macOS Intel/Apple Silicon 打包、原生 macOS 标题栏、主窗口/Sidebar 贴底、LAN Chat 主题与昵称修复纳入发布说明。
 - 02:41 完成 v0.9.3 发布前验证：`npm test` 通过（10 个测试文件、33 个用例），`npm run build` 通过（保留 Vite 大 chunk 警告），`cargo check` 通过（保留既有 SSH `path` 未使用与 `RedisConnectionType` 未使用 warning）。
+
+### 2026-05-18
+
+- 10:52 修复 LAN Chat 三人及以上在线时只在单个节点可见的问题：确认根因是发现链路只依赖单跳 UDP presence，部分网络下只有一个节点掌握完整在线列表；presence、presenceReply 和 room 广播新增已知在线 peer gossip，接收端自动合并远端已知设备，公共聊天室群发目标增加去重，`cargo check` 通过（仅保留既有 `RedisConnectionType` 未使用 warning），`npm test` 通过（10 个测试文件、33 个用例）。
+
+### 2026-05-25
+
+- 启动第十期 Confluence Publisher 插件规划：完成需求探索与设计确认（编辑器驱动型方案、Confluence Server/Data Center REST v1 + Basic Auth、unified 生态 Markdown 转换、Monaco 编辑器分屏布局、LaTeX/Mermaid 渲染上传），输出设计规格 `docs/superpowers/specs/2026-05-25-confluence-publisher-design.md`，按 Phase 53-59 将完整迭代计划写入 `PLAN.md`。
+
+- 完成 Phase 53 后端脚手架：SQLite 新增 `confluence_connections` 表、`confluence_connection_repo.rs` 实现 AES-256-GCM 加密 CRUD、`client.rs` 封装 reqwest Basic Auth HTTP 客户端、`commands.rs` 注册 5 个 Tauri 命令（list/save/delete/test/upload_attachment），`cargo check` 通过。
+- 完成 Phase 53.4 前端插件注册：新增 `src/plugins/confluence/` 目录，`index.tsx` 注册 manifest（sidebarOrder: 9），`types.ts`、`store/confluence.ts` Zustand store、`components/ConnectionSettings.tsx` 连接配置抽屉表单；在 `builtin.ts` 注册 confluence 插件（按字母序排在 mongodb-client 后）；依赖 `@monaco-editor/react`、`unified`/`remark-parse`/`remark-gfm`、`base64-js` 已安装。
+- 完成 Phase 54 Markdown → Confluence Storage Format 转换：`utils/converter.ts` 基于 unified AST 构造 Storage Format XML，覆盖标题、粗斜体、行内代码、围栏代码块、链接、图片、表格、任务列表、引用块、分割线、有序/无序列表共 12 类基础元素；支持 LaTeX 数学公式（mathinline/mathblock 宏）、Mermaid 图表（html 宏 + CDN）、markdownToPreviewHtml 预览 HTML 生成。
+- 完成 Phase 55 Monaco 编辑器 + 预览 UI：`ConfluenceEditor.tsx` 实现左右分屏（Monaco 50% + 预览 50%），工具栏支持打开/保存本地 .md 文件（Tauri dialog + fs API）、连接设置入口、发布按钮；编辑内容实时转换预览，转换失败时在预览区显示错误信息不崩溃。
+- 修复 ConfluenceEditor 类型错误：Tauri v2 `openDialog({multiple: false})` 返回 `string | null` 而非对象，移除 `.path` 属性访问；`npm run build` 通过。
+- 完成 Phase 56 Confluence API 集成：Rust 后端新增 Space 列表/Page 列表/创建/更新/附件上传 5 个命令；前端 `PublishDialog.tsx` 支持 Space 下拉搜索、父页面树形选择、标题输入、新建/更新模式识别、发布进度显示与错误处理。
+- 完成 Phase 57 文件管理与页面映射：Monaco 支持打开/保存 .md 文件，`utils/file-mapping.ts` 基于 localStorage 存储文件路径→Confluence 页面 ID 映射，打开已关联文件时自动切换为更新模式。
+- 完成 Phase 58 附件处理：`utils/attachments.ts` 实现本地图片提取/上传/URL 替换（ri:url → ri:attachment），自动识别 MIME 类型；Converter 增强 LaTeX（mathinline/mathblock 宏）和 Mermaid（html 宏）支持。
+- 完成 Phase 59 版本升级与文档：版本号同步升至 `0.10.0`（4 个文件），新增 `docs/releases/v0.10.0.md` 发布说明，README 中英文增加 Confluence Publisher 插件说明、技术栈、目录结构、安全声明与当前限制。
+- 修复 `src-tauri/src/lib.rs` 多余闭合括号（compilation error: unexpected closing delimiter）。
+- 修复 `commands.rs` unused variable warning（`_app_handle`）。
+- 验证通过：`cargo check`（2 个预期 warning）、`npm test`（10 个文件、33 个用例全部通过）、`npm run build`（Vite 大 chunk 警告正常）。
+
+### 2026-05-26
+
+- 修复 Confluence Publisher 在 SSO/PAT 场景测试连接 401 的问题：连接配置新增认证方式 `Basic` / `Personal Access Token (Bearer)`，后端按 `auth_type` 生成 `Authorization: Basic ...` 或 `Authorization: Bearer <token>`；旧连接默认 Basic，SQLite 增加 `auth_type` 迁移，编辑连接时密码/Token 留空会保留原加密凭据；README、release notes 和第十期计划同步说明 SSO/PAT Bearer 支持；`cargo check`、`npm test`、`npm run build` 均通过。
+- 修复 Confluence Publisher 父页面列表混入下级页面的问题：根层 Parent Page 查询改为 `expand=ancestors,version` 并只保留 `ancestors` 为空的页面；选择父页面后的子页面加载仍使用 `/rest/api/content/{parentId}/child/page` 获取直接子页面；`cargo check` 通过。
+- 11:42 优化 Confluence Publisher 页面选择与历史发布：编辑器左侧新增 Space/Page Tree，支持按 Space 加载一级页面、展开页面懒加载子页面，选中页面后发布弹窗默认发布到该页面下；新增 `confluence_publish_history` SQLite 表与记录/列表/删除命令，发布创建/更新后保存 Markdown 快照，可从历史记录一键载入继续修改或删除本地历史记录；根层页面查询调整为官方 `/rest/api/space/{spaceKey}/content/page` 并继续用 `ancestors` 过滤一级页面。
+- 11:51 清理 Rust warning：删除后端未使用的 `RedisConnectionType` enum，Redis 连接类型继续按现有数据库/表单字符串透传；`cargo check` 已无 `RedisConnectionType` 未使用 warning，`npm test`、`npm run build`、`cargo check` 均通过。
+- 12:48 修复 Confluence Space 页面树在 LAI 等空间下拉不到目录的问题：根页面查询兼容 Confluence Server/Data Center 的顶层 `results` 与 `page.results` 两种响应结构；官方 `/rest/api/space/{spaceKey}/content/page` 失败或返回空时自动回退到 `/rest/api/content?type=page&spaceKey=...&expand=ancestors,version` 并过滤一级页面；补充后端单元测试覆盖两种响应结构，`cargo check`、`cargo test confluence::client::tests --lib`、`npm test`、`npm run build` 均通过。
+- 13:56 修复 Confluence Publisher 编辑状态与 Mermaid/代码宏兼容性：顶部工具栏新增 `New`，左侧页面树新增 `New here`，新建草稿时清空当前编辑内容、文件路径和旧页面绑定，但保留左侧选中的 Space/Page 作为发布目标，避免在其他目录新写文档时误更新老页面；代码宏增加语言白名单与别名映射，`json/jsonc` 映射为 `javascript`，`http` 等不支持语言自动省略 language 参数；Mermaid 本地预览改为实时渲染，发布时渲染为 PNG 附件后嵌入页面，避免 Confluence Server/Data Center 不显示 SVG 或禁用 html 宏的问题。
+
+### 2026-05-27
+
+- 08:46 调整 Mermaid 发布策略为 draw.io 嵌入：Markdown 中的 `mermaid` 代码块不再输出 html 宏、PNG 或普通图片附件；发布时先用 Mermaid 渲染 SVG，再封装为 `.drawio` XML 附件上传，页面正文插入 Confluence draw.io 宏引用该附件，解决位图失真问题并适配已安装 draw.io 插件的 Confluence 环境；本地预览仍使用 Mermaid 实时渲染。
+- 18:51 修复阿里云 OSS/S3 兼容账号无 `ListBuckets` 权限时无法进入 Bucket 列表的问题：S3 连接高级配置将 `Default Bucket` 扩展为 `Manual Buckets`，支持逗号、分号或换行填写多个 Bucket；连接测试在配置手动 Bucket 时改用第一个 Bucket 的 `ListObjectsV2(maxKeys=1)` 验证权限；Bucket 列表在 `ListBuckets` 失败或返回空时回退到手动 Bucket 列表，保障仅授权具体 Bucket 的账号仍可浏览对象。
+- 20:13 优化 OSS/S3 Objects 页面占满主工作区：S3 插件内容区、Objects 卡片和对象列表改为连续 flex 布局；对象表格去掉固定 `520px` 滚动高度，改用 `ResizeObserver` 根据可用空间动态计算滚动区域，Grid/List 两种视图都随窗口尺寸铺满剩余区域。

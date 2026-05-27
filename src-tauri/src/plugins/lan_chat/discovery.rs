@@ -17,12 +17,24 @@ static FILE_SERVER_STARTED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct LanChatKnownPeer {
+    pub device_id: String,
+    pub nickname: String,
+    pub host: Option<String>,
+    pub port: u16,
+    pub last_seen: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LanChatWireMessage {
     pub protocol: String,
     pub kind: String,
     pub device_id: String,
     pub nickname: String,
     pub port: u16,
+    #[serde(default)]
+    pub peers: Vec<LanChatKnownPeer>,
     pub room_id: Option<String>,
     pub room_name: Option<String>,
     pub room_channel: Option<String>,
@@ -88,6 +100,88 @@ fn upsert_device(
     Ok(())
 }
 
+fn known_peers(app_handle: &tauri::AppHandle) -> Vec<LanChatKnownPeer> {
+    let Ok((local_device_id, _, _)) = local_identity(app_handle) else {
+        return Vec::new();
+    };
+    let Ok(conn) = open_db(app_handle) else {
+        return Vec::new();
+    };
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT device_id, nickname, host, port, last_seen
+         FROM lan_chat_devices
+         WHERE is_local = 0 AND online = 1 AND host IS NOT NULL AND device_id <> ?1
+         ORDER BY updated_at DESC
+         LIMIT 64",
+    ) else {
+        return Vec::new();
+    };
+
+    stmt.query_map(params![local_device_id], |row| {
+        Ok(LanChatKnownPeer {
+            device_id: row.get(0)?,
+            nickname: row.get(1)?,
+            host: row.get(2)?,
+            port: row.get::<_, i64>(3)? as u16,
+            last_seen: row.get(4)?,
+        })
+    })
+    .map(|rows| rows.filter_map(Result::ok).collect())
+    .unwrap_or_default()
+}
+
+fn upsert_known_peers(
+    app_handle: &tauri::AppHandle,
+    wire: &LanChatWireMessage,
+) -> Result<(), String> {
+    if wire.peers.is_empty() {
+        return Ok(());
+    }
+    let (local_device_id, _, _) = local_identity(app_handle)?;
+    let conn = open_db(app_handle)?;
+    let now = Utc::now().to_rfc3339();
+    for peer in &wire.peers {
+        if peer.device_id == local_device_id || peer.device_id == wire.device_id {
+            continue;
+        }
+        let Some(host) = peer
+            .host
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        else {
+            continue;
+        };
+        conn.execute(
+            "INSERT INTO lan_chat_devices
+             (id, device_id, nickname, host, port, online, is_local, last_seen, client_version, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, ?6, ?7, ?6, ?6)
+             ON CONFLICT(device_id) DO UPDATE SET nickname = excluded.nickname, host = excluded.host, port = excluded.port, online = 1, last_seen = excluded.last_seen, updated_at = excluded.updated_at",
+            params![
+                Uuid::new_v4().to_string(),
+                peer.device_id,
+                peer.nickname,
+                host,
+                peer.port as i64,
+                peer.last_seen.as_deref().unwrap_or(&now),
+                app_handle.package_info().version.to_string(),
+            ],
+        )
+        .map_err(|err| format!("failed to save gossiped LAN Chat peer: {err}"))?;
+    }
+    crate::dev_log::record(
+        app_handle,
+        "debug",
+        "lan-chat.discovery",
+        "Merged gossiped LAN Chat peers",
+        Some(format!(
+            "from={} peers={}",
+            wire.device_id,
+            wire.peers.len()
+        )),
+    );
+    Ok(())
+}
+
 fn upsert_room(app_handle: &tauri::AppHandle, wire: &LanChatWireMessage) -> Result<(), String> {
     let Some(room_id) = wire.room_id.as_deref().filter(|value| !value.is_empty()) else {
         return Ok(());
@@ -118,7 +212,10 @@ fn upsert_room(app_handle: &tauri::AppHandle, wire: &LanChatWireMessage) -> Resu
     Ok(())
 }
 
-fn save_incoming_message(app_handle: &tauri::AppHandle, wire: &LanChatWireMessage) -> Result<(), String> {
+fn save_incoming_message(
+    app_handle: &tauri::AppHandle,
+    wire: &LanChatWireMessage,
+) -> Result<(), String> {
     let (local_device_id, _, _) = local_identity(app_handle)?;
     if wire.device_id == local_device_id {
         return Ok(());
@@ -131,7 +228,11 @@ fn save_incoming_message(app_handle: &tauri::AppHandle, wire: &LanChatWireMessag
     let Some(conversation_type) = wire.conversation_type.as_deref() else {
         return Ok(());
     };
-    let Some(content) = wire.content.as_deref().filter(|value| !value.trim().is_empty()) else {
+    let Some(content) = wire
+        .content
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    else {
         return Ok(());
     };
     let conversation_id = if conversation_type == "direct" {
@@ -147,8 +248,14 @@ fn save_incoming_message(app_handle: &tauri::AppHandle, wire: &LanChatWireMessag
         return Ok(());
     }
     let conn = open_db(app_handle)?;
-    let created_at = wire.created_at.clone().unwrap_or_else(|| Utc::now().to_rfc3339());
-    let message_id = wire.message_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
+    let created_at = wire
+        .created_at
+        .clone()
+        .unwrap_or_else(|| Utc::now().to_rfc3339());
+    let message_id = wire
+        .message_id
+        .clone()
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
     conn.execute(
         "INSERT OR IGNORE INTO lan_chat_messages
          (id, conversation_id, conversation_type, sender_device_id, message_type, content, metadata_json, status, created_at)
@@ -170,7 +277,10 @@ fn save_incoming_message(app_handle: &tauri::AppHandle, wire: &LanChatWireMessag
         "info",
         "lan-chat.tcp",
         "Received LAN Chat message",
-        Some(format!("from={} conversation={conversation_id}", wire.device_id)),
+        Some(format!(
+            "from={} conversation={conversation_id}",
+            wire.device_id
+        )),
     );
     Ok(())
 }
@@ -187,6 +297,7 @@ fn handle_wire_message(
         return Ok(());
     }
     upsert_device(app_handle, &wire, source)?;
+    upsert_known_peers(app_handle, &wire)?;
     match wire.kind.as_str() {
         "presence" => {
             if allow_presence_reply {
@@ -217,6 +328,7 @@ fn send_presence_reply(
         device_id,
         nickname,
         port,
+        peers: known_peers(app_handle),
         room_id: None,
         room_name: None,
         room_channel: None,
@@ -239,6 +351,7 @@ fn presence_wire(app_handle: &tauri::AppHandle) -> Result<LanChatWireMessage, St
         device_id,
         nickname,
         port,
+        peers: known_peers(app_handle),
         room_id: None,
         room_name: None,
         room_channel: None,
@@ -252,7 +365,11 @@ fn presence_wire(app_handle: &tauri::AppHandle) -> Result<LanChatWireMessage, St
     })
 }
 
-fn send_with_socket(socket: &UdpSocket, address: String, wire: &LanChatWireMessage) -> Result<(), String> {
+fn send_with_socket(
+    socket: &UdpSocket,
+    address: String,
+    wire: &LanChatWireMessage,
+) -> Result<(), String> {
     let payload = serde_json::to_vec(wire)
         .map_err(|err| format!("failed to encode LAN Chat UDP packet: {err}"))?;
     socket
@@ -315,7 +432,11 @@ pub fn start(app_handle: tauri::AppHandle) {
                     if tick >= 3 {
                         tick = 0;
                         if let Ok(wire) = presence_wire(&app_handle) {
-                            match send_with_socket(&socket, format!("255.255.255.255:{port}"), &wire) {
+                            match send_with_socket(
+                                &socket,
+                                format!("255.255.255.255:{port}"),
+                                &wire,
+                            ) {
                                 Ok(()) => crate::dev_log::record(
                                     &app_handle,
                                     "debug",
@@ -443,12 +564,19 @@ fn handle_file_stream(app_handle: &tauri::AppHandle, mut stream: TcpStream) -> R
         mime_type.unwrap_or_else(|| "application/octet-stream".to_string()),
         size
     );
-    stream.write_all(header.as_bytes()).map_err(|err| err.to_string())?;
+    stream
+        .write_all(header.as_bytes())
+        .map_err(|err| err.to_string())?;
     std::io::copy(&mut file, &mut stream).map_err(|err| err.to_string())?;
     Ok(())
 }
 
-fn write_http_response(stream: &mut TcpStream, status: u16, content_type: &str, body: &[u8]) -> Result<(), String> {
+fn write_http_response(
+    stream: &mut TcpStream,
+    status: u16,
+    content_type: &str,
+    body: &[u8],
+) -> Result<(), String> {
     let reason = match status {
         200 => "OK",
         403 => "Forbidden",
@@ -459,7 +587,9 @@ fn write_http_response(stream: &mut TcpStream, status: u16, content_type: &str, 
         "HTTP/1.1 {status} {reason}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n",
         body.len()
     );
-    stream.write_all(header.as_bytes()).map_err(|err| err.to_string())?;
+    stream
+        .write_all(header.as_bytes())
+        .map_err(|err| err.to_string())?;
     stream.write_all(body).map_err(|err| err.to_string())?;
     Ok(())
 }
@@ -556,7 +686,12 @@ pub fn broadcast_presence(app_handle: &tauri::AppHandle) -> Result<(), String> {
     result
 }
 
-pub fn broadcast_room(app_handle: &tauri::AppHandle, room_id: &str, room_name: &str, room_channel: &str) -> Result<(), String> {
+pub fn broadcast_room(
+    app_handle: &tauri::AppHandle,
+    room_id: &str,
+    room_name: &str,
+    room_channel: &str,
+) -> Result<(), String> {
     let (device_id, nickname, port) = local_identity(app_handle)?;
     let wire = LanChatWireMessage {
         protocol: PROTOCOL.to_string(),
@@ -564,6 +699,7 @@ pub fn broadcast_room(app_handle: &tauri::AppHandle, room_id: &str, room_name: &
         device_id,
         nickname,
         port,
+        peers: known_peers(app_handle),
         room_id: Some(room_id.to_string()),
         room_name: Some(room_name.to_string()),
         room_channel: Some(room_channel.to_string()),
@@ -638,11 +774,12 @@ pub fn send_udp_wire_message(
     let (_, _, port) = local_identity(app_handle)?;
     wire.protocol = PROTOCOL.to_string();
     wire.kind = "message".to_string();
-    let result = if let Some((host, target_port)) = target.filter(|(host, _)| !host.trim().is_empty()) {
-        send_to(format!("{host}:{target_port}"), &wire)
-    } else {
-        broadcast_wire_message(port, &wire)
-    };
+    let result =
+        if let Some((host, target_port)) = target.filter(|(host, _)| !host.trim().is_empty()) {
+            send_to(format!("{host}:{target_port}"), &wire)
+        } else {
+            broadcast_wire_message(port, &wire)
+        };
     crate::dev_log::record(
         app_handle,
         if result.is_ok() { "info" } else { "error" },
@@ -682,7 +819,7 @@ fn send_to_tcp(address: String, wire: &LanChatWireMessage) -> Result<(), String>
         .parse()
         .map_err(|err| format!("invalid LAN Chat TCP address {address}: {err}"))?;
     let mut stream = TcpStream::connect_timeout(&socket_addr, Duration::from_secs(3))
-    .map_err(|err| format!("failed to connect LAN Chat TCP peer {address}: {err}"))?;
+        .map_err(|err| format!("failed to connect LAN Chat TCP peer {address}: {err}"))?;
     let payload = serde_json::to_string(wire)
         .map_err(|err| format!("failed to encode LAN Chat TCP message: {err}"))?;
     stream

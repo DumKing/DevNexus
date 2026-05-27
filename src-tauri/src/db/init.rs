@@ -349,12 +349,42 @@ pub fn run(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
           file_size INTEGER NOT NULL DEFAULT 0,
           created_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS confluence_connections (
+          id TEXT PRIMARY KEY NOT NULL,
+          label TEXT NOT NULL,
+          base_url TEXT NOT NULL,
+          username TEXT NOT NULL,
+          auth_type TEXT NOT NULL DEFAULT 'basic',
+          password_encrypted TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS confluence_publish_history (
+          id TEXT PRIMARY KEY NOT NULL,
+          connection_id TEXT NOT NULL,
+          space_key TEXT NOT NULL,
+          page_id TEXT NOT NULL,
+          page_title TEXT NOT NULL,
+          page_version INTEGER NOT NULL DEFAULT 1,
+          parent_id TEXT,
+          parent_title TEXT,
+          action TEXT NOT NULL,
+          file_path TEXT,
+          markdown_content TEXT NOT NULL,
+          published_at TEXT NOT NULL
+        );
         "#,
     )
     .map_err(|err| format!("failed to initialize schema: {err}"))?;
 
     let _ = conn.execute(
         "ALTER TABLE lan_chat_rooms ADD COLUMN channel TEXT NOT NULL DEFAULT 'udp'",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE confluence_connections ADD COLUMN auth_type TEXT NOT NULL DEFAULT 'basic'",
         [],
     );
 

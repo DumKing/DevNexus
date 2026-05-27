@@ -67,13 +67,24 @@ pub async fn cmd_s3_test_connection(form: S3ConnectionForm) -> Result<S3Latency,
         created_at: String::new(),
     };
 
+    let manual_buckets = parse_manual_bucket_names(form.default_bucket.as_deref());
     let started = std::time::Instant::now();
     let client = super::client_pool::build_client(&info, &secret).await?;
-    client
-        .list_buckets()
-        .send()
-        .await
-        .map_err(|err| format!("list buckets failed: {err}"))?;
+    if let Some(bucket) = manual_buckets.first() {
+        client
+            .list_objects_v2()
+            .bucket(bucket)
+            .max_keys(1)
+            .send()
+            .await
+            .map_err(|err| format!("access manual bucket `{bucket}` failed: {err}"))?;
+    } else {
+        client
+            .list_buckets()
+            .send()
+            .await
+            .map_err(|err| format!("list buckets failed: {err}"))?;
+    }
     Ok(S3Latency {
         millis: started.elapsed().as_millis() as u64,
     })
@@ -169,14 +180,53 @@ pub struct S3ListObjectsResult {
     pub is_truncated: bool,
 }
 
+fn parse_manual_bucket_names(value: Option<&str>) -> Vec<String> {
+    let Some(value) = value else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for item in value.split([',', '\n', '\r', ';']) {
+        let name = item.trim();
+        if name.is_empty() || out.iter().any(|existing| existing == name) {
+            continue;
+        }
+        out.push(name.to_string());
+    }
+    out
+}
+
+fn manual_bucket_infos(value: Option<&str>) -> Vec<S3BucketInfo> {
+    parse_manual_bucket_names(value)
+        .into_iter()
+        .map(|name| S3BucketInfo {
+            name,
+            creation_date: None,
+            region: None,
+            versioning_status: None,
+        })
+        .collect()
+}
+
 #[tauri::command]
-pub async fn cmd_s3_list_buckets(conn_id: String) -> Result<Vec<S3BucketInfo>, String> {
+pub async fn cmd_s3_list_buckets(
+    app_handle: tauri::AppHandle,
+    conn_id: String,
+) -> Result<Vec<S3BucketInfo>, String> {
     let client = super::client_pool::get_client(&conn_id)?;
-    let resp = client
-        .list_buckets()
-        .send()
-        .await
-        .map_err(|err| format!("list buckets failed: {err}"))?;
+    let info = s3_connection_repo::get_s3_connection(&app_handle, &conn_id)?
+        .ok_or_else(|| format!("s3 connection `{conn_id}` not found"))?;
+    let manual_buckets = manual_bucket_infos(info.default_bucket.as_deref());
+    let resp = match client.list_buckets().send().await {
+        Ok(resp) => resp,
+        Err(err) => {
+            if manual_buckets.is_empty() {
+                return Err(format!(
+                    "list buckets failed: {err}. If this account only has access to specific buckets, edit the connection and set Manual Buckets."
+                ));
+            }
+            return Ok(manual_buckets);
+        }
+    };
     let mut out = Vec::new();
     if let Some(items) = resp.buckets {
         for item in items {
@@ -191,6 +241,9 @@ pub async fn cmd_s3_list_buckets(conn_id: String) -> Result<Vec<S3BucketInfo>, S
                 versioning_status: None,
             });
         }
+    }
+    if out.is_empty() && !manual_buckets.is_empty() {
+        return Ok(manual_buckets);
     }
     Ok(out)
 }
@@ -456,7 +509,11 @@ pub async fn cmd_s3_delete_objects(
     }
     let client = super::client_pool::get_client(&conn_id)?;
     let mut objects = Vec::new();
-    for key in keys.iter().map(|value| value.trim()).filter(|value| !value.is_empty()) {
+    for key in keys
+        .iter()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+    {
         objects.push(
             ObjectIdentifier::builder()
                 .key(key.to_string())
@@ -595,7 +652,9 @@ pub async fn cmd_s3_list_object_versions(
         return Err("bucket is required".to_string());
     }
     let client = super::client_pool::get_client(&conn_id)?;
-    let mut req = client.list_object_versions().bucket(bucket.trim().to_string());
+    let mut req = client
+        .list_object_versions()
+        .bucket(bucket.trim().to_string());
     if let Some(prefix) = prefix {
         if !prefix.trim().is_empty() {
             req = req.prefix(prefix.trim().to_string());
@@ -626,7 +685,11 @@ pub async fn cmd_s3_list_object_versions(
 }
 
 #[tauri::command]
-pub async fn cmd_s3_create_folder(conn_id: String, bucket: String, prefix: String) -> Result<(), String> {
+pub async fn cmd_s3_create_folder(
+    conn_id: String,
+    bucket: String,
+    prefix: String,
+) -> Result<(), String> {
     if bucket.trim().is_empty() || prefix.trim().is_empty() {
         return Err("bucket and prefix are required".to_string());
     }
@@ -670,7 +733,9 @@ pub async fn cmd_s3_upload_file(
         .body(body);
     if let Some(storage_class) = storage_class {
         if !storage_class.trim().is_empty() {
-            req = req.storage_class(aws_sdk_s3::types::StorageClass::from(storage_class.as_str()));
+            req = req.storage_class(aws_sdk_s3::types::StorageClass::from(
+                storage_class.as_str(),
+            ));
         }
     }
     req.send()
@@ -709,7 +774,11 @@ pub async fn cmd_s3_upload_folder(
             let key = if prefix.trim().is_empty() {
                 relative
             } else {
-                format!("{}{}", prefix.trim().trim_end_matches('/'), format!("/{relative}"))
+                format!(
+                    "{}{}",
+                    prefix.trim().trim_end_matches('/'),
+                    format!("/{relative}")
+                )
             };
             cmd_s3_upload_file(
                 conn_id.clone(),
@@ -784,7 +853,8 @@ pub async fn cmd_s3_download_objects(
     }
     let batch_id = uuid::Uuid::new_v4().to_string();
     for key in keys {
-        let path = std::path::Path::new(local_dir.trim()).join(key.replace('/', std::path::MAIN_SEPARATOR_STR));
+        let path = std::path::Path::new(local_dir.trim())
+            .join(key.replace('/', std::path::MAIN_SEPARATOR_STR));
         cmd_s3_download_object(
             conn_id.clone(),
             bucket.clone(),
@@ -1063,7 +1133,9 @@ pub async fn cmd_s3_get_bucket_stats(
         for object in result.objects {
             object_count += 1;
             total_size += object.size;
-            let class = object.storage_class.unwrap_or_else(|| "STANDARD".to_string());
+            let class = object
+                .storage_class
+                .unwrap_or_else(|| "STANDARD".to_string());
             *storage_class_breakdown.entry(class).or_insert(0) += 1;
         }
         token = result.next_token;
@@ -1076,4 +1148,16 @@ pub async fn cmd_s3_get_bucket_stats(
         total_size,
         storage_class_breakdown,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_manual_bucket_names;
+
+    #[test]
+    fn parses_manual_bucket_names_from_commas_newlines_and_semicolons() {
+        let buckets = parse_manual_bucket_names(Some(" alpha, beta\n gamma;alpha ;  "));
+
+        assert_eq!(buckets, vec!["alpha", "beta", "gamma"]);
+    }
 }
