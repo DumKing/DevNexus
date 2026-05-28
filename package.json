@@ -14,6 +14,8 @@
     "mobile:android:init": "tauri android init",
     "mobile:android:dev": "tauri android dev",
     "mobile:android:build": "tauri android build",
+    "mobile:android:build:debug": "tauri android build --debug --apk",
+    "mobile:android:build:debug:ci": "tauri android build --ci --debug --apk --target aarch64",
     "mobile:android:build:ci": "tauri android init --ci && tauri android build --ci --apk --aab --target aarch64",
     "mobile:ios:init": "tauri ios init",
     "mobile:ios:dev": "tauri ios dev",
