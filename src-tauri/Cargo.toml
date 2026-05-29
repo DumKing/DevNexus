@@ -35,7 +35,7 @@ uuid = { version = "1.18.1", features = ["v4", "serde"] }
 russh = "0.61.1"
 russh-keys = "0.44.0"
 base64 = "0.22.1"
-aws-config = "1.8.11"
+aws-config = "1.8.17"
 aws-sdk-s3 = "1.115.0"
 aws-credential-types = "1.2.10"
 async-trait = "0.1.89"
