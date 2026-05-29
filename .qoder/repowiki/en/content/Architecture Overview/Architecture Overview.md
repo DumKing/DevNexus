@@ -10,13 +10,13 @@
 - [types.ts](file://src/app/plugin-registry/types.ts)
 - [builtin.ts](file://src/app/plugin-registry/builtin.ts)
 - [settings.ts](file://src/app/store/settings.ts)
+- [theme.ts](file://src/app/store/theme.ts)
 - [tauri.conf.json](file://src-tauri/tauri.conf.json)
 - [lib.rs](file://src-tauri/src/lib.rs)
-- [main.rs](file://src-tauri/src/main.rs)
 - [Cargo.toml](file://src-tauri/Cargo.toml)
-- [init.rs](file://src-tauri/src/db/init.rs)
-- [mod.rs](file://src-tauri/src/db/mod.rs)
-- [index.tsx](file://src/plugins/api-debugger/index.tsx)
+- [api-debugger/index.tsx](file://src/plugins/api-debugger/index.tsx)
+- [redis-manager/index.tsx](file://src/plugins/redis-manager/index.tsx)
+- [ssh-client/index.tsx](file://src/plugins/ssh-client/index.tsx)
 </cite>
 
 ## Table of Contents
@@ -27,42 +27,46 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Dependency Analysis](#dependency-analysis)
 7. [Performance Considerations](#performance-considerations)
-8. [Security Considerations](#security-considerations)
-9. [Troubleshooting Guide](#troubleshooting-guide)
-10. [Conclusion](#conclusion)
+8. [Security and Cross-Cutting Concerns](#security-and-cross-cutting-consumers)
+9. [Deployment Considerations](#deployment-considerations)
+10. [Troubleshooting Guide](#troubleshooting-guide)
+11. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the architecture of DevNexus, a hybrid desktop application built with a React frontend and a Rust backend integrated via Tauri 2. The system follows a plugin-first architecture where each tool is encapsulated as an independent plugin with its own UI, state, and backend command handlers. The application shell orchestrates navigation, layout, and inter-plugin coordination, while the Rust backend provides secure, high-performance IPC commands and persistent storage.
+This document describes the system architecture of RDMM (DevNexus), a desktop developer toolkit built with a React frontend and a Tauri/Rust backend. The application follows a plugin-based extensibility model, enabling modular tooling for databases, cloud storage, SSH, LAN chat, and more. State management is handled by Zustand stores, and the frontend communicates with the backend via Tauri commands. The document explains the separation of concerns among UI components, plugin implementations, and backend services, along with system boundaries, data flow patterns, and integration points.
 
 ## Project Structure
-DevNexus is organized into two primary layers:
-- Frontend (React + TypeScript): Application shell, plugin registry, individual plugins, and shared stores.
-- Backend (Rust + Tauri): IPC command registration, database initialization, and platform integrations.
+The repository is organized into:
+- Frontend (TypeScript/React):
+  - Application shell and layout
+  - Plugin registry and router
+  - Built-in plugins under the plugins folder
+  - Global state stores (Zustand)
+- Backend (Rust/Tauri):
+  - Tauri configuration and command registration
+  - Rust modules implementing plugin commands and services
 
 ```mermaid
 graph TB
 subgraph "Frontend"
-A["main.tsx<br/>Entry point"]
+A["main.tsx<br/>App bootstrap"]
 B["App.tsx<br/>Ant Design wrapper"]
-C["AppShell.tsx<br/>Shell + Sidebar + Status"]
-D["PluginRouter.tsx<br/>Route to selected plugin"]
+C["AppShell.tsx<br/>Layout and routing"]
+D["PluginRouter.tsx<br/>Plugin selection"]
 E["registry.ts<br/>Plugin registry"]
-F["builtin.ts<br/>Register built-in plugins"]
-G["settings.ts<br/>Global settings store"]
+F["builtin.ts<br/>Built-in plugin registration"]
+G["settings.ts / theme.ts<br/>Global Zustand stores"]
 end
-subgraph "Backend (Tauri)"
-H["lib.rs<br/>Tauri builder + invoke handler"]
-I["main.rs<br/>Windows subsystem"]
-J["tauri.conf.json<br/>Build + window + security"]
-K["db/init.rs<br/>SQLite schema + migrations"]
+subgraph "Backend"
+H["tauri.conf.json<br/>Tauri config"]
+I["lib.rs<br/>Command registration"]
+J["Cargo.toml<br/>Dependencies"]
 end
 A --> B --> C --> D
-D --> E
-F --> E
+D --> E --> F
 C --> G
 H --> I
-J --> H
-H --> K
+I --> J
 ```
 
 **Diagram sources**
@@ -73,10 +77,10 @@ H --> K
 - [registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
 - [builtin.ts:1-31](file://src/app/plugin-registry/builtin.ts#L1-L31)
 - [settings.ts:1-28](file://src/app/store/settings.ts#L1-L28)
-- [lib.rs:1-263](file://src-tauri/src/lib.rs#L1-L263)
-- [main.rs:1-7](file://src-tauri/src/main.rs#L1-L7)
+- [theme.ts:1-27](file://src/app/store/theme.ts#L1-L27)
 - [tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
-- [init.rs:1-393](file://src-tauri/src/db/init.rs#L1-L393)
+- [lib.rs:1-263](file://src-tauri/src/lib.rs#L1-L263)
+- [Cargo.toml:1-49](file://src-tauri/Cargo.toml#L1-L49)
 
 **Section sources**
 - [main.tsx:1-38](file://src/main.tsx#L1-L38)
@@ -86,80 +90,80 @@ H --> K
 - [registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
 - [builtin.ts:1-31](file://src/app/plugin-registry/builtin.ts#L1-L31)
 - [settings.ts:1-28](file://src/app/store/settings.ts#L1-L28)
-- [lib.rs:1-263](file://src-tauri/src/lib.rs#L1-L263)
-- [main.rs:1-7](file://src-tauri/src/main.rs#L1-L7)
+- [theme.ts:1-27](file://src/app/store/theme.ts#L1-L27)
 - [tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
-- [init.rs:1-393](file://src-tauri/src/db/init.rs#L1-L393)
+- [lib.rs:1-263](file://src-tauri/src/lib.rs#L1-L263)
+- [Cargo.toml:1-49](file://src-tauri/Cargo.toml#L1-L49)
 
 ## Core Components
-- Application Shell: Orchestrates layout, status bar, sidebar, and plugin routing.
-- Plugin Registry: Central registry for plugin manifests with registration and lookup.
-- Built-in Plugins: Pre-registered plugins that extend functionality.
-- Settings Store: Persistent global state for UI and selection.
-- Tauri Runtime: Desktop windowing, IPC invocation, and backend command registration.
-- Database Layer: SQLite schema initialization and migrations.
-
-Key implementation references:
-- Shell and routing: [AppShell.tsx:31-206](file://src/app/layout/AppShell.tsx#L31-L206), [PluginRouter.tsx:7-28](file://src/app/plugin-registry/PluginRouter.tsx#L7-L28)
-- Plugin registry: [registry.ts:3-25](file://src/app/plugin-registry/registry.ts#L3-L25), [types.ts:5-13](file://src/app/plugin-registry/types.ts#L5-L13)
-- Built-in registration: [builtin.ts:14-29](file://src/app/plugin-registry/builtin.ts#L14-L29)
-- Settings persistence: [settings.ts:13-27](file://src/app/store/settings.ts#L13-L27)
-- IPC and commands: [lib.rs:26-259](file://src-tauri/src/lib.rs#L26-L259)
-- Database schema: [init.rs:35-392](file://src-tauri/src/db/init.rs#L35-L392)
+- Plugin Registry: Central registry managing plugin manifests and ordering.
+- Plugin Router: Selects and renders the active plugin component based on user selection.
+- Built-in Plugins: Pre-registered plugins injected at startup.
+- Global Stores: Zustand stores for settings and theme persistence.
+- Tauri Commands: Backend command handlers bridging frontend actions to Rust services.
+- Application Shell: Orchestrates layout, status bar, and plugin rendering.
 
 **Section sources**
-- [AppShell.tsx:31-206](file://src/app/layout/AppShell.tsx#L31-L206)
-- [PluginRouter.tsx:7-28](file://src/app/plugin-registry/PluginRouter.tsx#L7-L28)
-- [registry.ts:3-25](file://src/app/plugin-registry/registry.ts#L3-L25)
-- [types.ts:5-13](file://src/app/plugin-registry/types.ts#L5-L13)
-- [builtin.ts:14-29](file://src/app/plugin-registry/builtin.ts#L14-L29)
-- [settings.ts:13-27](file://src/app/store/settings.ts#L13-L27)
-- [lib.rs:26-259](file://src-tauri/src/lib.rs#L26-L259)
-- [init.rs:35-392](file://src-tauri/src/db/init.rs#L35-L392)
-
-## Architecture Overview
-DevNexus employs a hybrid desktop architecture:
-- Frontend: React application bootstrapped in main.tsx, wrapped by Ant Design, and rendered inside AppShell.
-- Backend: Tauri 2 runtime initializes plugins, registers IPC commands, and manages the desktop window.
-- Plugin-first: Each tool is a self-contained plugin with its own manifest, UI, and state.
-- IPC: Frontend invokes backend commands via Tauri’s invoke handler; backend executes operations and returns typed results.
-- Data Layer: SQLite database initialized on startup with schema and migrations.
-
-```mermaid
-graph TB
-FE["React Frontend<br/>main.tsx → App → AppShell → PluginRouter"]
-PR["Plugin Registry<br/>registry.ts + types.ts"]
-BP["Built-in Plugins<br/>builtin.ts"]
-ST["Settings Store<br/>settings.ts"]
-BE["Tauri Backend<br/>lib.rs + main.rs"]
-CFG["Tauri Config<br/>tauri.conf.json"]
-DB["Database<br/>db/init.rs"]
-FE --> PR
-FE --> ST
-FE --> BP
-FE --> BE
-CFG --> BE
-BE --> DB
-```
-
-**Diagram sources**
-- [main.tsx:1-38](file://src/main.tsx#L1-L38)
-- [App.tsx:1-11](file://src/App.tsx#L1-L11)
-- [AppShell.tsx:1-207](file://src/app/layout/AppShell.tsx#L1-L207)
-- [PluginRouter.tsx:1-29](file://src/app/plugin-registry/PluginRouter.tsx#L1-L29)
 - [registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
 - [types.ts:1-14](file://src/app/plugin-registry/types.ts#L1-L14)
 - [builtin.ts:1-31](file://src/app/plugin-registry/builtin.ts#L1-L31)
+- [PluginRouter.tsx:1-29](file://src/app/plugin-registry/PluginRouter.tsx#L1-L29)
 - [settings.ts:1-28](file://src/app/store/settings.ts#L1-L28)
-- [lib.rs:1-263](file://src-tauri/src/lib.rs#L1-L263)
-- [main.rs:1-7](file://src-tauri/src/main.rs#L1-L7)
+- [theme.ts:1-27](file://src/app/store/theme.ts#L1-L27)
+- [lib.rs:26-259](file://src-tauri/src/lib.rs#L26-L259)
+
+## Architecture Overview
+The system follows a layered architecture:
+- Presentation Layer: React components and plugin views.
+- Routing Layer: PluginRouter selects the active plugin.
+- State Layer: Zustand stores manage UI and plugin-specific state.
+- Integration Layer: Tauri commands connect frontend to backend services.
+- Domain Services Layer: Rust modules implement plugin commands and data access.
+
+```mermaid
+graph TB
+subgraph "Presentation"
+PR["PluginRouter.tsx"]
+P1["Plugin Views (e.g., api-debugger/index.tsx)"]
+P2["Plugin Views (e.g., redis-manager/index.tsx)"]
+P3["Plugin Views (e.g., ssh-client/index.tsx)"]
+end
+subgraph "State"
+ZS["settings.ts"]
+ZT["theme.ts"]
+end
+subgraph "Integration"
+TC["Tauri Commands<br/>lib.rs"]
+CFG["tauri.conf.json"]
+end
+subgraph "Domain Services"
+RS["Rust Modules<br/>Cargo.toml deps"]
+end
+PR --> P1
+PR --> P2
+PR --> P3
+PR --> ZS
+PR --> ZT
+PR --> TC
+TC --> RS
+CFG --> TC
+```
+
+**Diagram sources**
+- [PluginRouter.tsx:1-29](file://src/app/plugin-registry/PluginRouter.tsx#L1-L29)
+- [api-debugger/index.tsx:1-39](file://src/plugins/api-debugger/index.tsx#L1-L39)
+- [redis-manager/index.tsx:1-67](file://src/plugins/redis-manager/index.tsx#L1-L67)
+- [ssh-client/index.tsx:1-66](file://src/plugins/ssh-client/index.tsx#L1-L66)
+- [settings.ts:1-28](file://src/app/store/settings.ts#L1-L28)
+- [theme.ts:1-27](file://src/app/store/theme.ts#L1-L27)
+- [lib.rs:26-259](file://src-tauri/src/lib.rs#L26-L259)
 - [tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
-- [init.rs:1-393](file://src-tauri/src/db/init.rs#L1-L393)
+- [Cargo.toml:1-49](file://src-tauri/Cargo.toml#L1-L49)
 
 ## Detailed Component Analysis
 
-### Plugin Registry and Manifest System
-The plugin registry defines a minimal manifest contract and exposes registration and lookup utilities. Built-in plugins register themselves during application bootstrap.
+### Plugin Registry and Router
+The plugin registry maintains a sorted list of plugin manifests keyed by ID. The router selects the current plugin based on persisted settings and renders the associated component.
 
 ```mermaid
 classDiagram
@@ -170,207 +174,213 @@ class PluginManifest {
 +string version
 +PluginComponent component
 +number sidebarOrder
-+boolean? showInSidebar
++boolean showInSidebar
 }
 class Registry {
-+register(plugin) void
++register(plugin)
 +getAll() PluginManifest[]
-+getById(id) PluginManifest?
-+clearRegistry() void
++getById(id) PluginManifest
++clearRegistry()
 }
-class BuiltIns {
-+registerBuiltinPlugins() void
+class PluginRouter {
++selectedPluginId : string
++render() ReactNode
 }
-Registry <.. BuiltIns : "uses"
-BuiltIns --> Registry : "registers"
+Registry --> PluginManifest : "stores"
+PluginRouter --> Registry : "reads"
 ```
 
 **Diagram sources**
 - [types.ts:5-13](file://src/app/plugin-registry/types.ts#L5-L13)
 - [registry.ts:3-25](file://src/app/plugin-registry/registry.ts#L3-L25)
-- [builtin.ts:14-29](file://src/app/plugin-registry/builtin.ts#L14-L29)
+- [PluginRouter.tsx:7-27](file://src/app/plugin-registry/PluginRouter.tsx#L7-L27)
 
 **Section sources**
-- [types.ts:5-13](file://src/app/plugin-registry/types.ts#L5-L13)
-- [registry.ts:3-25](file://src/app/plugin-registry/registry.ts#L3-L25)
-- [builtin.ts:14-29](file://src/app/plugin-registry/builtin.ts#L14-L29)
+- [registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
+- [types.ts:1-14](file://src/app/plugin-registry/types.ts#L1-L14)
+- [PluginRouter.tsx:1-29](file://src/app/plugin-registry/PluginRouter.tsx#L1-L29)
 
-### Application Shell and Routing
-The shell composes the UI layout, integrates the sidebar, status bar, LAN chat docking, and renders the active plugin via PluginRouter. It also monitors LAN chat state and coordinates desktop window resizing.
+### Built-in Plugin Registration
+Built-in plugins are registered once at application startup. This ensures the registry is populated before the router attempts to render a plugin.
 
 ```mermaid
 sequenceDiagram
-participant U as "User"
-participant S as "AppShell"
-participant R as "PluginRouter"
-participant P as "Selected Plugin"
-participant ST as "Settings Store"
-U->>S : Launch application
-S->>ST : Read selectedPluginId
-S->>R : Render router with selected id
-R->>P : Render plugin component
-S-->>U : Display shell + plugin UI
+participant Boot as "main.tsx"
+participant Builtin as "builtin.ts"
+participant Registry as "registry.ts"
+Boot->>Builtin : registerBuiltinPlugins()
+Builtin->>Registry : register(plugin)
+Registry-->>Builtin : ok
+Builtin-->>Boot : initialized=true
 ```
 
 **Diagram sources**
-- [AppShell.tsx:31-206](file://src/app/layout/AppShell.tsx#L31-L206)
-- [PluginRouter.tsx:7-28](file://src/app/plugin-registry/PluginRouter.tsx#L7-L28)
-- [settings.ts:13-27](file://src/app/store/settings.ts#L13-L27)
+- [main.tsx:5-10](file://src/main.tsx#L5-L10)
+- [builtin.ts:14-29](file://src/app/plugin-registry/builtin.ts#L14-L29)
+- [registry.ts:5-11](file://src/app/plugin-registry/registry.ts#L5-L11)
 
 **Section sources**
-- [AppShell.tsx:31-206](file://src/app/layout/AppShell.tsx#L31-L206)
-- [PluginRouter.tsx:7-28](file://src/app/plugin-registry/PluginRouter.tsx#L7-L28)
-- [settings.ts:13-27](file://src/app/store/settings.ts#L13-L27)
+- [main.tsx:1-38](file://src/main.tsx#L1-L38)
+- [builtin.ts:1-31](file://src/app/plugin-registry/builtin.ts#L1-L31)
+- [registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
 
-### IPC Command Registration and Invocation
-Tauri registers a comprehensive set of backend commands under the invoke handler. These commands are invoked from the frontend to perform operations scoped to each plugin’s domain.
+### Frontend-Backend Communication via Tauri Commands
+The frontend invokes backend commands through Tauri’s invoke mechanism. The backend registers command handlers in lib.rs, which are generated from plugin modules. The Tauri configuration defines the development and bundling behavior.
 
 ```mermaid
 sequenceDiagram
-participant FE as "Frontend Component"
-participant TA as "Tauri Invoke"
-participant CMD as "Backend Command"
-participant DB as "Database"
-FE->>TA : invoke("redis : cmd_connect", payload)
-TA->>CMD : dispatch(cmd_connect)
-CMD->>DB : execute SQL / network ops
-DB-->>CMD : result
-CMD-->>TA : typed response
-TA-->>FE : resolve promise
+participant FE as "React Component"
+participant TRS as "Tauri Runtime"
+participant CMD as "lib.rs handlers"
+participant MOD as "Rust Module"
+FE->>TRS : invoke("plugin_cmd", payload)
+TRS->>CMD : route to registered handler
+CMD->>MOD : execute domain operation
+MOD-->>CMD : result/error
+CMD-->>TRS : response
+TRS-->>FE : resolve promise
 ```
 
 **Diagram sources**
 - [lib.rs:26-259](file://src-tauri/src/lib.rs#L26-L259)
+- [tauri.conf.json:6-11](file://src-tauri/tauri.conf.json#L6-L11)
 
 **Section sources**
-- [lib.rs:26-259](file://src-tauri/src/lib.rs#L26-L259)
+- [lib.rs:1-263](file://src-tauri/src/lib.rs#L1-L263)
+- [tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
 
-### Database Initialization and Schema
-On startup, the backend ensures the application data directory exists, migrates legacy database paths if needed, and initializes SQLite tables and migrations.
+### State Management with Zustand
+Global state is managed by Zustand stores with persistence. The settings store controls UI state and selected plugin, while the theme store manages appearance mode.
 
 ```mermaid
 flowchart TD
-Start(["App Startup"]) --> Resolve["Resolve app data directory"]
-Resolve --> Ensure["Ensure data directory exists"]
-Ensure --> DBPath["Determine database path"]
-DBPath --> Open["Open SQLite connection"]
-Open --> InitSchema["Initialize tables and indexes"]
-InitSchema --> Migrate["Apply migrations"]
-Migrate --> Done(["Ready"])
+Start(["App Startup"]) --> LoadSettings["Load persisted settings"]
+LoadSettings --> RenderRouter["Render PluginRouter"]
+RenderRouter --> ReadSelected["Read selectedPluginId"]
+ReadSelected --> HasPlugin{"Plugin exists?"}
+HasPlugin --> |Yes| RenderPlugin["Render plugin component"]
+HasPlugin --> |No| ShowWarning["Show warning UI"]
+RenderPlugin --> End(["Interactive Session"])
+ShowWarning --> End
 ```
 
 **Diagram sources**
-- [init.rs:28-392](file://src-tauri/src/db/init.rs#L28-L392)
+- [settings.ts:13-27](file://src/app/store/settings.ts#L13-L27)
+- [PluginRouter.tsx:7-27](file://src/app/plugin-registry/PluginRouter.tsx#L7-L27)
 
 **Section sources**
-- [init.rs:28-392](file://src-tauri/src/db/init.rs#L28-L392)
+- [settings.ts:1-28](file://src/app/store/settings.ts#L1-L28)
+- [theme.ts:1-27](file://src/app/store/theme.ts#L1-L27)
+- [PluginRouter.tsx:1-29](file://src/app/plugin-registry/PluginRouter.tsx#L1-L29)
 
-### Example Plugin: API Debugger
-Each plugin encapsulates its UI, state, and backend commands. The API Debugger plugin demonstrates tabbed views and environment awareness.
+### Plugin Implementation Examples
+Each plugin exports a manifest and a root component. The plugin root component manages its internal state and views.
+
+```mermaid
+classDiagram
+class ApiDebuggerPlugin {
++id : "api-debugger"
++name : "API"
++version : string
++sidebarOrder : number
++component : ReactNode
+}
+class RedisManagerPlugin {
++id : "redis-manager"
++name : "Redis"
++version : string
++sidebarOrder : number
++component : ReactNode
+}
+class SshClientPlugin {
++id : "ssh-client"
++name : "SSH"
++version : string
++sidebarOrder : number
++component : ReactNode
+}
+ApiDebuggerPlugin <.. PluginManifest
+RedisManagerPlugin <.. PluginManifest
+SshClientPlugin <.. PluginManifest
+```
+
+**Diagram sources**
+- [api-debugger/index.tsx:38](file://src/plugins/api-debugger/index.tsx#L38)
+- [redis-manager/index.tsx:59-66](file://src/plugins/redis-manager/index.tsx#L59-L66)
+- [ssh-client/index.tsx:58-65](file://src/plugins/ssh-client/index.tsx#L58-L65)
+- [types.ts:5-13](file://src/app/plugin-registry/types.ts#L5-L13)
+
+**Section sources**
+- [api-debugger/index.tsx:1-39](file://src/plugins/api-debugger/index.tsx#L1-L39)
+- [redis-manager/index.tsx:1-67](file://src/plugins/redis-manager/index.tsx#L1-L67)
+- [ssh-client/index.tsx:1-66](file://src/plugins/ssh-client/index.tsx#L1-L66)
+
+## Dependency Analysis
+The frontend depends on the plugin registry and stores, while the backend exposes commands consumed by the frontend. The Tauri configuration ties the frontend build to the backend runtime.
 
 ```mermaid
 graph LR
-AD["ApiDebuggerRoot<br/>index.tsx"] --> WS["Workspace View"]
-AD --> COL["Collections View"]
-AD --> ENV["Environments View"]
-AD --> HIS["History View"]
-AD --> ST["ApiDebugger Store"]
+FE_Main["main.tsx"] --> FE_App["App.tsx"]
+FE_App --> FE_Shell["AppShell.tsx"]
+FE_Shell --> FE_Router["PluginRouter.tsx"]
+FE_Router --> FE_Registry["registry.ts"]
+FE_Shell --> FE_Settings["settings.ts"]
+FE_Shell --> FE_Theme["theme.ts"]
+BE_Config["tauri.conf.json"] --> BE_Lib["lib.rs"]
+BE_Lib --> BE_Cargo["Cargo.toml"]
 ```
 
 **Diagram sources**
-- [index.tsx:13-39](file://src/plugins/api-debugger/index.tsx#L13-L39)
-
-**Section sources**
-- [index.tsx:13-39](file://src/plugins/api-debugger/index.tsx#L13-L39)
-
-## Dependency Analysis
-The frontend depends on the plugin registry and settings store to render the active plugin. The backend depends on Tauri configuration and database initialization. IPC commands bridge frontend and backend.
-
-```mermaid
-graph TB
-subgraph "Frontend Dependencies"
-REG["registry.ts"]
-TYPES["types.ts"]
-BUILTIN["builtin.ts"]
-SETTINGS["settings.ts"]
-SHELL["AppShell.tsx"]
-ROUTER["PluginRouter.tsx"]
-end
-subgraph "Backend Dependencies"
-CONF["tauri.conf.json"]
-LIB["lib.rs"]
-MAIN["main.rs"]
-DBMOD["db/mod.rs"]
-DBINIT["db/init.rs"]
-end
-ROUTER --> REG
-SHELL --> ROUTER
-SHELL --> SETTINGS
-BUILTIN --> REG
-LIB --> DBINIT
-CONF --> LIB
-MAIN --> LIB
-```
-
-**Diagram sources**
-- [registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
-- [types.ts:1-14](file://src/app/plugin-registry/types.ts#L1-L14)
-- [builtin.ts:1-31](file://src/app/plugin-registry/builtin.ts#L1-L31)
-- [settings.ts:1-28](file://src/app/store/settings.ts#L1-L28)
+- [main.tsx:1-38](file://src/main.tsx#L1-L38)
+- [App.tsx:1-11](file://src/App.tsx#L1-L11)
 - [AppShell.tsx:1-207](file://src/app/layout/AppShell.tsx#L1-L207)
 - [PluginRouter.tsx:1-29](file://src/app/plugin-registry/PluginRouter.tsx#L1-L29)
+- [registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
+- [settings.ts:1-28](file://src/app/store/settings.ts#L1-L28)
+- [theme.ts:1-27](file://src/app/store/theme.ts#L1-L27)
 - [tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
 - [lib.rs:1-263](file://src-tauri/src/lib.rs#L1-L263)
-- [main.rs:1-7](file://src-tauri/src/main.rs#L1-L7)
-- [mod.rs:1-8](file://src-tauri/src/db/mod.rs#L1-L8)
-- [init.rs:1-393](file://src-tauri/src/db/init.rs#L1-L393)
+- [Cargo.toml:1-49](file://src-tauri/Cargo.toml#L1-L49)
 
 **Section sources**
-- [registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
-- [types.ts:1-14](file://src/app/plugin-registry/types.ts#L1-L14)
-- [builtin.ts:1-31](file://src/app/plugin-registry/builtin.ts#L1-L31)
-- [settings.ts:1-28](file://src/app/store/settings.ts#L1-L28)
+- [main.tsx:1-38](file://src/main.tsx#L1-L38)
 - [AppShell.tsx:1-207](file://src/app/layout/AppShell.tsx#L1-L207)
-- [PluginRouter.tsx:1-29](file://src/app/plugin-registry/PluginRouter.tsx#L1-L29)
-- [tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
 - [lib.rs:1-263](file://src-tauri/src/lib.rs#L1-L263)
-- [main.rs:1-7](file://src-tauri/src/main.rs#L1-L7)
-- [mod.rs:1-8](file://src-tauri/src/db/mod.rs#L1-L8)
-- [init.rs:1-393](file://src-tauri/src/db/init.rs#L1-L393)
+- [tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
 
 ## Performance Considerations
-- Lazy plugin rendering: PluginRouter renders only the selected plugin, minimizing DOM and memory overhead.
-- Debounced background tasks: LAN chat monitoring uses initial delay and periodic polling to balance responsiveness and CPU usage.
-- SQLite I/O: Database operations are centralized and schema-initialized once per session to avoid repeated setup costs.
-- IPC batching: Group related operations where possible to reduce round-trips.
+- Plugin rendering is lazy via the router; only the active plugin component is mounted.
+- Zustand stores are scoped per plugin or global, minimizing unnecessary re-renders.
+- Tauri command handlers should avoid blocking operations; heavy workloads should be asynchronous.
+- Persisted stores reduce initialization overhead by restoring state from disk.
 
-## Security Considerations
-- Desktop runtime detection: Shell logic adapts behavior based on Tauri vs browser runtime.
-- CSP configuration: Tauri config disables CSP for development flexibility; production builds should enforce appropriate policies.
-- Encrypted secrets: Database schema includes encrypted fields for sensitive credentials across plugins.
-- Platform-specific behavior: macOS decoration toggling is handled at startup for native look-and-feel.
+## Security and Cross-Cutting Concerns
+- Tauri configuration disables CSP for development; production builds should enforce a strict policy.
+- Encryption and secrets handling are present in dependencies; ensure sensitive data is stored securely and transmitted over encrypted channels.
+- Access to filesystem and dialogs is enabled via Tauri plugins; restrict capabilities to the minimum required for each plugin.
 
 **Section sources**
-- [AppShell.tsx:40-92](file://src/app/layout/AppShell.tsx#L40-L92)
 - [tauri.conf.json:23-25](file://src-tauri/tauri.conf.json#L23-L25)
-- [init.rs:37-133](file://src-tauri/src/db/init.rs#L37-L133)
+- [Cargo.toml:29-30](file://src-tauri/Cargo.toml#L29-L30)
+
+## Deployment Considerations
+- Development: The frontend runs at http://localhost:1420, served by Vite; Tauri launches the packaged app after building.
+- Production: The app bundles the frontend dist and packages platform-specific binaries; ensure icons and metadata are configured.
+- Capabilities: Review and constrain Tauri capabilities for hardened deployments.
+
+**Section sources**
+- [tauri.conf.json:6-11](file://src-tauri/tauri.conf.json#L6-L11)
+- [tauri.conf.json:27-37](file://src-tauri/tauri.conf.json#L27-L37)
 
 ## Troubleshooting Guide
-- No plugin registered: If the registry is empty, PluginRouter displays a warning. Ensure built-in plugins are registered during bootstrap.
-  - Reference: [PluginRouter.tsx:15-24](file://src/app/plugin-registry/PluginRouter.tsx#L15-L24), [builtin.ts:14-29](file://src/app/plugin-registry/builtin.ts#L14-L29)
-- Database initialization failures: Verify data directory creation and migration steps.
-  - Reference: [init.rs:28-392](file://src-tauri/src/db/init.rs#L28-L392)
-- IPC command not found: Confirm command is listed in the invoke handler registration.
-  - Reference: [lib.rs:26-259](file://src-tauri/src/lib.rs#L26-L259)
-- Settings persistence issues: Check zustand persistence middleware configuration.
-  - Reference: [settings.ts:13-27](file://src/app/store/settings.ts#L13-L27)
+- No plugin registered: The router displays a warning when no plugin is found; ensure built-in plugins are registered during boot.
+- Command not found: Verify the command is included in the generated handler list in lib.rs and matches the frontend invocation.
+- State not persisting: Confirm the store middleware is configured and the storage key matches the persisted store name.
 
 **Section sources**
 - [PluginRouter.tsx:15-24](file://src/app/plugin-registry/PluginRouter.tsx#L15-L24)
-- [builtin.ts:14-29](file://src/app/plugin-registry/builtin.ts#L14-L29)
-- [init.rs:28-392](file://src-tauri/src/db/init.rs#L28-L392)
 - [lib.rs:26-259](file://src-tauri/src/lib.rs#L26-L259)
 - [settings.ts:13-27](file://src/app/store/settings.ts#L13-L27)
 
 ## Conclusion
-DevNexus combines a React-powered UI with a Rust-backed Tauri runtime to deliver a modular, plugin-first desktop application. The plugin registry and manifest system enable clean isolation of UI and state per tool, while Tauri’s IPC provides secure, typed access to backend capabilities. The application shell coordinates navigation and system integration, and SQLite-backed persistence supports each plugin’s data needs. This architecture balances maintainability, performance, and extensibility for a developer-focused toolkit.
+RDMM employs a clean separation of concerns: UI components and plugin views encapsulate presentation logic, Zustand stores centralize state, and Tauri commands provide a secure bridge to Rust-backed services. The plugin registry and router enable extensibility, while Tauri configuration and Cargo dependencies define the runtime and capabilities. This architecture supports modular growth, maintainable state management, and robust desktop integration.

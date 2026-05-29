@@ -7,370 +7,379 @@
 - [vite.config.ts](file://vite.config.ts)
 - [src-tauri/tauri.conf.json](file://src-tauri/tauri.conf.json)
 - [src-tauri/Cargo.toml](file://src-tauri/Cargo.toml)
-- [src-tauri/src/main.rs](file://src-tauri/src/main.rs)
-- [src-tauri/build.rs](file://src-tauri/build.rs)
-- [.github/workflows/build-desktop.yml](file://.github/workflows/build-desktop.yml)
-- [.github/workflows/release.yml](file://.github/workflows/release.yml)
-- [src/plugins/api-debugger/index.tsx](file://src/plugins/api-debugger/index.tsx)
+- [src/main.tsx](file://src/main.tsx)
+- [src/app/plugin-registry/builtin.ts](file://src/app/plugin-registry/builtin.ts)
+- [src/app/plugin-registry/registry.ts](file://src/app/plugin-registry/registry.ts)
+- [src/app/plugin-registry/types.ts](file://src/app/plugin-registry/types.ts)
+- [src/app/layout/AppShell.tsx](file://src/app/layout/AppShell.tsx)
+- [src/app/layout/Sidebar.tsx](file://src/app/layout/Sidebar.tsx)
 - [src/plugins/redis-manager/index.tsx](file://src/plugins/redis-manager/index.tsx)
 - [src/plugins/ssh-client/index.tsx](file://src/plugins/ssh-client/index.tsx)
+- [src/plugins/mysql-client/index.tsx](file://src/plugins/mysql-client/index.tsx)
 - [src/plugins/s3-client/index.tsx](file://src/plugins/s3-client/index.tsx)
 </cite>
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
-3. [Core Components](#core-components)
-4. [Architecture Overview](#architecture-overview)
-5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+3. [System Requirements](#system-requirements)
+4. [Installation](#installation)
+5. [First-Time Setup](#first-time-setup)
+6. [Running the Development Environment](#running-the-development-environment)
+7. [Building the Application](#building-the-application)
+8. [Launching the Desktop App](#launching-the-desktop-app)
+9. [Basic Navigation](#basic-navigation)
+10. [Plugin Activation and Workflows](#plugin-activation-and-workflows)
+11. [Connecting Your First Database](#connecting-your-first-database)
+12. [Configuring SSH Connections](#configuring-ssh-connections)
+13. [Using Core Features](#using-core-features)
+14. [Troubleshooting Guide](#troubleshooting-guide)
+15. [Conclusion](#conclusion)
 
 ## Introduction
-DevNexus is a plugin-based desktop toolbox built with Tauri 2 + React 19 + TypeScript + Rust. It brings common connection-oriented and diagnostic tools into a single lightweight desktop application. The application is organized into a React frontend and a Rust backend, with a plugin architecture that isolates each tool’s UI, state, and backend commands.
-
-Key highlights:
-- Plugin-first design: each tool keeps its UI, state, backend commands, and connection pool isolated.
-- Local-first storage: connection profiles are stored in local SQLite; sensitive fields are encrypted with AES-GCM.
-- Lightweight desktop shell: Tauri provides a small native shell while Rust handles protocol and system-facing work.
-- Cross-platform packaging: GitHub Actions build Windows, macOS, and Linux packages.
-
-**Section sources**
-- [README.md:207-256](file://README.md#L207-L256)
+DevNexus is a pluginized desktop toolbox built with Tauri 2, React 19, TypeScript, and Rust. It consolidates common connectivity tools into a single lightweight desktop application, covering Redis, SSH, S3, MongoDB, MySQL, Network diagnostics, API debugging, MQ debugging, and Confluence publishing. The project emphasizes local-first storage, cross-platform packaging, and practical operations for developers and operators.
 
 ## Project Structure
-The repository is split into:
-- Frontend: React 19, TypeScript, Vite, Ant Design, Zustand, ECharts, xterm.js
-- Backend: Rust, Tokio, SQLite via rusqlite, and protocol crates for Redis, SSH, S3, MongoDB, MySQL, MQ, and HTTP
-- Tauri configuration: tauri.conf.json defines build, dev, app, and bundling settings
-- Platform-specific CI: GitHub Actions workflows for Windows/macOS/Linux builds
+DevNexus follows a clear separation of concerns:
+- Frontend: React 19 with TypeScript, Vite, Ant Design, Zustand for state, and xterm.js for terminals
+- Backend: Rust with Tauri 2 plugins for each domain (Redis, SSH, S3, MongoDB, MySQL, MQ, Confluence, LAN Chat)
+- Plugin Registry: Centralized registration and routing of plugins
+- Tauri Configuration: Desktop window, bundling, and build hooks
 
 ```mermaid
 graph TB
 subgraph "Frontend"
-A["React 19<br/>TypeScript<br/>Vite"]
-B["Ant Design UI"]
-C["Zustand State"]
-D["ECharts & xterm.js"]
+A["src/main.tsx<br/>Root initialization"]
+B["src/app/layout/AppShell.tsx<br/>Main shell"]
+C["src/app/layout/Sidebar.tsx<br/>Navigation"]
+D["src/app/plugin-registry/*<br/>Registry & manifests"]
 end
-subgraph "Backend"
-E["Rust + Tokio"]
-F["SQLite via rusqlite"]
-G["Protocol Crates<br/>Redis / SSH / S3 / MongoDB / MySQL / MQ / HTTP"]
+subgraph "Plugins"
+P1["Redis Plugin"]
+P2["SSH Plugin"]
+P3["S3 Plugin"]
+P4["MongoDB Plugin"]
+P5["MySQL Plugin"]
+P6["MQ Plugin"]
+P7["Confluence Plugin"]
+P8["LAN Chat Plugin"]
 end
-subgraph "Desktop Shell"
-H["Tauri 2"]
-I["tauri.conf.json"]
+subgraph "Backend (Rust)"
+R["src-tauri/src/plugins/*<br/>Tauri commands & pools"]
 end
-A --> H
-B --> A
-C --> A
-D --> A
-H --> E
-E --> F
-E --> G
-I --> H
+A --> B --> C
+B --> D
+D --> P1
+D --> P2
+D --> P3
+D --> P4
+D --> P5
+D --> P6
+D --> P7
+D --> P8
+P1 --> R
+P2 --> R
+P3 --> R
+P4 --> R
+P5 --> R
+P6 --> R
+P7 --> R
+P8 --> R
 ```
 
 **Diagram sources**
-- [README.md:257-298](file://README.md#L257-L298)
-- [src-tauri/tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
+- [src/main.tsx:1-38](file://src/main.tsx#L1-L38)
+- [src/app/layout/AppShell.tsx:1-207](file://src/app/layout/AppShell.tsx#L1-L207)
+- [src/app/layout/Sidebar.tsx:1-177](file://src/app/layout/Sidebar.tsx#L1-L177)
+- [src/app/plugin-registry/builtin.ts:1-31](file://src/app/plugin-registry/builtin.ts#L1-L31)
+- [src/app/plugin-registry/registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
+- [src/app/plugin-registry/types.ts:1-14](file://src/app/plugin-registry/types.ts#L1-L14)
 
 **Section sources**
-- [README.md:58-99](file://README.md#L58-L99)
-- [src-tauri/tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
+- [README.md:54-95](file://README.md#L54-L95)
+- [src/main.tsx:1-38](file://src/main.tsx#L1-L38)
+- [src/app/layout/AppShell.tsx:1-207](file://src/app/layout/AppShell.tsx#L1-L207)
+- [src/app/layout/Sidebar.tsx:1-177](file://src/app/layout/Sidebar.tsx#L1-L177)
+- [src/app/plugin-registry/builtin.ts:1-31](file://src/app/plugin-registry/builtin.ts#L1-L31)
+- [src/app/plugin-registry/registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
+- [src/app/plugin-registry/types.ts:1-14](file://src/app/plugin-registry/types.ts#L1-L14)
 
-## Core Components
-- Environment requirements:
-  - Node.js 20+
-  - Rust stable
-  - Platform-specific Tauri prerequisites
-- Scripts:
-  - Frontend dev server, build, lint, test, preview, and Tauri CLI invocation
-- Tauri configuration:
-  - Dev URL, port, and frontend build path
-  - Bundling targets and icons
-  - Window defaults and CSP policy
+## System Requirements
+- Node.js 20+ for frontend toolchain
+- Rust stable for backend compilation
+- Platform-specific Tauri prerequisites:
+  - Windows: meet Tauri Windows prerequisites
+  - macOS/Linux: meet Tauri macOS/Linux prerequisites
 
-Verification commands:
-- npm test (Vitest)
-- npm run build (TypeScript + Vite)
-- cargo check (Rust backend)
-
-Packaging:
-- Current platform default bundle
-- Windows NSIS installer
-- macOS .app + .dmg
-- Linux .deb + .AppImage
+Reference: [README.md:97-108](file://README.md#L97-L108)
 
 **Section sources**
-- [README.md:101-156](file://README.md#L101-L156)
-- [README.md:300-354](file://README.md#L300-L354)
-- [package.json:6-14](file://package.json#L6-L14)
-- [src-tauri/tauri.conf.json:6-11](file://src-tauri/tauri.conf.json#L6-L11)
+- [README.md:97-108](file://README.md#L97-L108)
 
-## Architecture Overview
-The development and build pipeline integrates Vite, Tauri, and Rust:
+## Installation
+Install dependencies for both frontend and backend:
+- Install Node.js dependencies
+- Install Rust toolchain and Tauri prerequisites
+
+Reference: [README.md:109-120](file://README.md#L109-L120)
+
+**Section sources**
+- [README.md:109-120](file://README.md#L109-L120)
+
+## First-Time Setup
+On first launch, the app initializes:
+- Registers built-in plugins
+- Applies theme and global styles
+- Sets up the main shell and sidebar
+
+Key startup flow:
+- Root bootstraps theme and registers plugins
+- AppShell renders layout, sidebar, and plugin router
+- Sidebar groups plugins and exposes navigation
 
 ```mermaid
 sequenceDiagram
-participant Dev as "Developer"
-participant NPM as "npm scripts"
-participant Vite as "Vite Dev Server"
-participant Tauri as "Tauri CLI"
-participant Rust as "Cargo Build"
-participant App as "Desktop App"
-Dev->>NPM : "npm install"
-Dev->>NPM : "npm run dev"
-NPM->>Vite : "Start dev server"
-Vite-->>Dev : "Serve frontend at http : //localhost : 1420"
-Dev->>NPM : "npm run tauri dev"
-NPM->>Tauri : "Start Tauri dev"
-Tauri->>Rust : "Build backend"
-Rust-->>Tauri : "Run backend"
-Tauri->>Vite : "Load devUrl"
-Vite-->>App : "Render app"
-App-->>Dev : "Desktop app with hot reload"
+participant U as "User"
+participant M as "src/main.tsx"
+participant R as "builtin.ts"
+participant A as "AppShell.tsx"
+participant S as "Sidebar.tsx"
+U->>M : Launch app
+M->>R : registerBuiltinPlugins()
+M->>M : Apply theme & global styles
+M->>A : Render AppShell
+A->>S : Render Sidebar
+S-->>U : Display plugin list & navigation
 ```
 
 **Diagram sources**
-- [vite.config.ts:20-41](file://vite.config.ts#L20-L41)
-- [src-tauri/tauri.conf.json:6-11](file://src-tauri/tauri.conf.json#L6-L11)
-- [package.json:6-14](file://package.json#L6-L14)
+- [src/main.tsx:1-38](file://src/main.tsx#L1-L38)
+- [src/app/plugin-registry/builtin.ts:14-29](file://src/app/plugin-registry/builtin.ts#L14-L29)
+- [src/app/layout/AppShell.tsx:31-207](file://src/app/layout/AppShell.tsx#L31-L207)
+- [src/app/layout/Sidebar.tsx:21-177](file://src/app/layout/Sidebar.tsx#L21-L177)
 
 **Section sources**
-- [vite.config.ts:1-42](file://vite.config.ts#L1-L42)
+- [src/main.tsx:1-38](file://src/main.tsx#L1-L38)
+- [src/app/plugin-registry/builtin.ts:14-29](file://src/app/plugin-registry/builtin.ts#L14-L29)
+- [src/app/layout/AppShell.tsx:31-207](file://src/app/layout/AppShell.tsx#L31-L207)
+- [src/app/layout/Sidebar.tsx:21-177](file://src/app/layout/Sidebar.tsx#L21-L177)
+
+## Running the Development Environment
+There are two primary ways to run the development environment:
+- Run the frontend-only dev server
+- Run the full Tauri desktop dev mode
+
+Ports and HMR:
+- Frontend runs on a fixed port during Tauri dev/build
+- Vite HMR can be configured for remote hosts
+
+References:
+- [README.md:109-120](file://README.md#L109-L120)
+- [vite.config.ts:25-40](file://vite.config.ts#L25-L40)
+- [src-tauri/tauri.conf.json:6-11](file://src-tauri/tauri.conf.json#L6-L11)
+
+**Section sources**
+- [README.md:109-120](file://README.md#L109-L120)
+- [vite.config.ts:25-40](file://vite.config.ts#L25-L40)
+- [src-tauri/tauri.conf.json:6-11](file://src-tauri/tauri.conf.json#L6-L11)
+
+## Building the Application
+Build targets:
+- Frontend production build
+- Rust backend compilation check
+- Tauri bundle for current platform
+
+References:
+- [README.md:122-134](file://README.md#L122-L134)
+- [package.json:6-13](file://package.json#L6-L13)
+- [src-tauri/Cargo.toml:1-49](file://src-tauri/Cargo.toml#L1-L49)
+
+**Section sources**
+- [README.md:122-134](file://README.md#L122-L134)
+- [package.json:6-13](file://package.json#L6-L13)
+- [src-tauri/Cargo.toml:1-49](file://src-tauri/Cargo.toml#L1-L49)
+
+## Launching the Desktop App
+Desktop configuration:
+- Window sizing and minimum dimensions
+- Pre-dev and pre-build hooks
+- Bundling icons and targets
+
+References:
 - [src-tauri/tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
-- [README.md:113-124](file://README.md#L113-L124)
-
-## Detailed Component Analysis
-
-### Environment Setup Requirements
-- Node.js 20+ and Rust stable are mandatory.
-- Platform-specific Tauri prerequisites must be installed for Windows, macOS, and Linux.
-- CI workflows demonstrate the required toolchain versions and Linux system dependencies.
-
-Platform prerequisites references:
-- Rust installation: https://www.rust-lang.org/tools/install
-- Tauri prerequisites: https://tauri.app/start/prerequisites/
-
-Linux system dependencies (from CI):
-- libwebkit2gtk-4.1-dev
-- libgtk-3-dev
-- libayatana-appindicator3-dev
-- librsvg2-dev
-- libcurl4-openssl-dev
-- patchelf
 
 **Section sources**
-- [README.md:101-106](file://README.md#L101-L106)
-- [README.md:108-111](file://README.md#L108-L111)
-- [.github/workflows/build-desktop.yml:112-121](file://.github/workflows/build-desktop.yml#L112-L121)
+- [src-tauri/tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
 
-### Step-by-Step Installation (Development)
-1. Install dependencies
-   - Run: npm install
-2. Frontend-only development
-   - Run: npm run dev
-   - Visit: http://localhost:1420
-3. Full Tauri desktop development
-   - Run: npm run tauri dev
-   - Tauri loads the dev server at http://localhost:1420
-
-Notes:
-- Vite runs on port 1420 with strictPort enabled.
-- Tauri dev uses the configured devUrl and frontendDist.
-
-**Section sources**
-- [README.md:113-124](file://README.md#L113-L124)
-- [vite.config.ts:20-41](file://vite.config.ts#L20-L41)
-- [src-tauri/tauri.conf.json:6-11](file://src-tauri/tauri.conf.json#L6-L11)
-
-### Step-by-Step Installation (Production)
-- Build for current platform:
-  - npm run tauri build
-- Platform-specific bundles:
-  - Windows: npm run tauri build -- --bundles nsis
-  - macOS: npm run tauri build -- --bundles app,dmg
-  - Linux: npm run tauri build -- --bundles deb,appimage
-
-Artifacts:
-- Windows: NSIS installer under src-tauri/target/release/bundle/nsis/
-- macOS: .app and .dmg under respective bundle directories
-- Linux: .deb and .AppImage under respective bundle directories
-
-**Section sources**
-- [README.md:142-156](file://README.md#L142-L156)
-- [README.md:340-354](file://README.md#L340-L354)
-
-### Verification Commands
-- Run tests: npm test
-- Type-check and build frontend: npm run build
-- Rust backend check: cd src-tauri && cargo check
-
-Notes:
-- The build may show Vite large-chunk warnings and an existing unused RedisConnectionType warning; as long as exit code is 0, they do not block release.
-
-**Section sources**
-- [README.md:126-138](file://README.md#L126-L138)
-- [README.md:324-336](file://README.md#L324-L336)
-
-### Local Development Workflow
-- Frontend-only development:
-  - npm run dev starts Vite at http://localhost:1420
-  - Vite ignores src-tauri during watch
-- Full Tauri development:
-  - npm run tauri dev launches Tauri with the dev server
-  - Tauri expects a fixed port and will fail if unavailable
+## Basic Navigation
+The sidebar organizes plugins into logical groups:
+- Database Tools group (Redis, MongoDB, MySQL)
+- Other tools (SSH, S3, Network, API Debugger, MQ, Confluence, LAN Chat)
+- Theme toggle and LAN Chat quick access
 
 ```mermaid
 flowchart TD
-Start(["Start"]) --> DevCmd["npm run dev"]
-DevCmd --> Vite["Vite Dev Server<br/>Port 1420"]
-Vite --> FEOnly["Frontend-only dev<br/>UI at localhost:1420"]
-Start --> TauriCmd["npm run tauri dev"]
-TauriCmd --> TauriCLI["Tauri CLI"]
-TauriCLI --> RustBuild["Cargo Build"]
-RustBuild --> RunApp["Run Desktop App"]
-RunApp --> FullDev["Full Tauri dev<br/>with backend"]
+Start["Open DevNexus"] --> Sidebar["Sidebar loads"]
+Sidebar --> DBGroup["DB Tools group"]
+DBGroup --> Redis["Redis"]
+DBGroup --> Mongo["MongoDB"]
+DBGroup --> MySQL["MySQL"]
+Sidebar --> Others["Other Plugins"]
+Others --> SSH["SSH"]
+Others --> S3["S3"]
+Others --> Net["Network Tools"]
+Others --> API["API Debugger"]
+Others --> MQ["MQ Client"]
+Others --> Conf["Confluence"]
+Others --> Chat["LAN Chat"]
+DBGroup --> Toggle["Expand/Collapse"]
+Others --> Toggle
+Chat --> Unread["Show unread badge"]
 ```
 
 **Diagram sources**
-- [vite.config.ts:20-41](file://vite.config.ts#L20-L41)
-- [src-tauri/tauri.conf.json:6-11](file://src-tauri/tauri.conf.json#L6-L11)
-- [package.json:6-14](file://package.json#L6-L14)
+- [src/app/layout/Sidebar.tsx:21-177](file://src/app/layout/Sidebar.tsx#L21-L177)
+- [src/app/plugin-registry/registry.ts:13-17](file://src/app/plugin-registry/registry.ts#L13-L17)
 
 **Section sources**
-- [vite.config.ts:1-42](file://vite.config.ts#L1-L42)
-- [src-tauri/tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
+- [src/app/layout/Sidebar.tsx:21-177](file://src/app/layout/Sidebar.tsx#L21-L177)
+- [src/app/plugin-registry/registry.ts:13-17](file://src/app/plugin-registry/registry.ts#L13-L17)
 
-### Quick Start Examples
-Launch the application:
-- Frontend-only: npm run dev
-- Full desktop: npm run tauri dev
-
-Access plugins:
-- API Debugger: Workspace, Collections, Environments, History tabs
-- Redis Manager: Connections, Keys, Console, Server tabs
-- SSH Client: Connections, Terminal, Keys, Tunnels tabs
-- S3 Client: Connections, Buckets, Objects tabs
-
-Basic operations:
-- Open the plugin from the sidebar navigation.
-- Switch tabs within each plugin to navigate between views.
-- Use the active environment indicator in the API Debugger to manage environments.
-
-**Section sources**
-- [src/plugins/api-debugger/index.tsx:13-39](file://src/plugins/api-debugger/index.tsx#L13-L39)
-- [src/plugins/redis-manager/index.tsx:14-67](file://src/plugins/redis-manager/index.tsx#L14-L67)
-- [src/plugins/ssh-client/index.tsx:12-66](file://src/plugins/ssh-client/index.tsx#L12-L66)
-- [src/plugins/s3-client/index.tsx:10-76](file://src/plugins/s3-client/index.tsx#L10-L76)
-
-### Platform-Specific Considerations
-- Windows
-  - Requires Tauri Windows prerequisites.
-  - Artifacts: NSIS installer.
-- macOS
-  - Multi-arch builds supported (x64 and arm64).
-  - Artifacts: .app and .dmg bundles.
-- Linux
-  - Requires system dependencies listed in CI.
-  - Artifacts: .deb and .AppImage bundles.
-
-CI references:
-- Windows/macOS/Linux build jobs and targets
-- Linux system dependency installation
-
-**Section sources**
-- [.github/workflows/build-desktop.yml:13-40](file://.github/workflows/build-desktop.yml#L13-L40)
-- [.github/workflows/build-desktop.yml:41-96](file://.github/workflows/build-desktop.yml#L41-L96)
-- [.github/workflows/build-desktop.yml:97-142](file://.github/workflows/build-desktop.yml#L97-L142)
-- [.github/workflows/release.yml:12-61](file://.github/workflows/release.yml#L12-L61)
-- [.github/workflows/release.yml:62-110](file://.github/workflows/release.yml#L62-L110)
-- [.github/workflows/release.yml:111-149](file://.github/workflows/release.yml#L111-L149)
-
-## Dependency Analysis
-High-level dependencies between frontend, backend, and Tauri:
+## Plugin Activation and Workflows
+Plugins are registered centrally and rendered by the plugin router. Each plugin defines:
+- Manifest with id, name, icon, version, sidebar order, and component
+- Internal tabs and views (e.g., connections, workspaces, consoles)
 
 ```mermaid
-graph LR
-FE["Frontend (React/Vite)"] --> TAURI["Tauri CLI"]
-TAURI --> RS["Rust Backend (Cargo)"]
-RS --> SQLITE["SQLite (rusqlite)"]
-RS --> PROT["Protocol Crates"]
-FE --> UI["Ant Design / Zustand / ECharts / xterm.js"]
+classDiagram
+class PluginManifest {
++string id
++string name
++ReactNode icon
++string version
++PluginComponent component
++number sidebarOrder
++boolean showInSidebar
+}
+class Registry {
++register(plugin)
++getAll() PluginManifest[]
++getById(id) PluginManifest
++clearRegistry()
+}
+class BuiltinPlugins {
++registerBuiltinPlugins()
+}
+Registry <.. BuiltinPlugins : "used by"
+PluginManifest <.. Registry : "stores"
 ```
 
 **Diagram sources**
-- [src-tauri/Cargo.toml:20-49](file://src-tauri/Cargo.toml#L20-L49)
-- [package.json:15-45](file://package.json#L15-L45)
-- [src-tauri/tauri.conf.json:6-11](file://src-tauri/tauri.conf.json#L6-L11)
+- [src/app/plugin-registry/types.ts:5-13](file://src/app/plugin-registry/types.ts#L5-L13)
+- [src/app/plugin-registry/registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
+- [src/app/plugin-registry/builtin.ts:14-29](file://src/app/plugin-registry/builtin.ts#L14-L29)
 
 **Section sources**
-- [src-tauri/Cargo.toml:1-49](file://src-tauri/Cargo.toml#L1-L49)
-- [package.json:15-45](file://package.json#L15-L45)
-- [src-tauri/tauri.conf.json:1-39](file://src-tauri/tauri.conf.json#L1-L39)
+- [src/app/plugin-registry/types.ts:1-14](file://src/app/plugin-registry/types.ts#L1-L14)
+- [src/app/plugin-registry/registry.ts:1-26](file://src/app/plugin-registry/registry.ts#L1-L26)
+- [src/app/plugin-registry/builtin.ts:1-31](file://src/app/plugin-registry/builtin.ts#L1-L31)
 
-## Performance Considerations
-- Use pagination and filtering for large datasets (tables, buckets, collections).
-- Prefer virtualized lists and scroll-safe dashboards to avoid UI stalls.
-- Keep the number of concurrent connections reasonable and close unused sessions.
+## Connecting Your First Database
+Choose a database plugin from the sidebar and follow the plugin’s internal workflow:
+- Redis: Manage connections, browse keys, use console, view server info
+- MongoDB: Manage connections, browse databases/collections, edit documents, run queries
+- MySQL: Manage connections, browse databases/tables, run SQL, manage indexes and import/export
 
-[No sources needed since this section provides general guidance]
+```mermaid
+sequenceDiagram
+participant U as "User"
+participant S as "Sidebar"
+participant P as "Plugin Root"
+participant V as "Plugin Views"
+U->>S : Click plugin (e.g., Redis)
+S-->>P : Activate plugin manifest
+P->>V : Render appropriate view (connections/keys/console/server)
+U->>V : Configure connection / run operations
+```
+
+**Diagram sources**
+- [src/app/layout/Sidebar.tsx:21-177](file://src/app/layout/Sidebar.tsx#L21-L177)
+- [src/plugins/redis-manager/index.tsx:14-57](file://src/plugins/redis-manager/index.tsx#L14-L57)
+- [src/plugins/mongodb-client/index.tsx:14-35](file://src/plugins/mongodb-client/index.tsx#L14-L35)
+- [src/plugins/mysql-client/index.tsx:14-35](file://src/plugins/mysql-client/index.tsx#L14-L35)
+
+**Section sources**
+- [src/app/layout/Sidebar.tsx:21-177](file://src/app/layout/Sidebar.tsx#L21-L177)
+- [src/plugins/redis-manager/index.tsx:14-57](file://src/plugins/redis-manager/index.tsx#L14-L57)
+- [src/plugins/mongodb-client/index.tsx:14-35](file://src/plugins/mongodb-client/index.tsx#L14-L35)
+- [src/plugins/mysql-client/index.tsx:14-35](file://src/plugins/mysql-client/index.tsx#L14-L35)
+
+## Configuring SSH Connections
+SSH plugin workflow:
+- Manage connections, open terminals, manage keys, and configure tunnels
+- Use segmented controls to switch between connections, terminal, keys, and tunnels
+
+```mermaid
+sequenceDiagram
+participant U as "User"
+participant S as "Sidebar"
+participant SSH as "SSH Plugin Root"
+participant L as "ConnectionList"
+participant T as "TerminalWorkspace"
+participant K as "KeyManager"
+participant TUN as "TunnelManager"
+U->>S : Select "SSH"
+S-->>SSH : Load plugin
+SSH->>L : Show connections (default)
+U->>SSH : Switch to "Terminal"
+SSH->>T : Render terminal workspace
+U->>SSH : Switch to "Keys"
+SSH->>K : Open key manager
+U->>SSH : Switch to "Tunnels"
+SSH->>TUN : Open tunnel manager
+```
+
+**Diagram sources**
+- [src/plugins/ssh-client/index.tsx:12-56](file://src/plugins/ssh-client/index.tsx#L12-L56)
+- [src/app/layout/Sidebar.tsx:21-177](file://src/app/layout/Sidebar.tsx#L21-L177)
+
+**Section sources**
+- [src/plugins/ssh-client/index.tsx:12-56](file://src/plugins/ssh-client/index.tsx#L12-L56)
+- [src/app/layout/Sidebar.tsx:21-177](file://src/app/layout/Sidebar.tsx#L21-L177)
+
+## Using Core Features
+Common features across plugins:
+- Connection management: create, edit, delete, and activate connections
+- Workspace tabs: navigate between connections, browsing, editing, and utilities
+- Status bar: shows runtime context, active tool, and LAN Chat indicators
+- Theme switching: light/dark modes
+
+References:
+- [src/app/layout/AppShell.tsx:45-56](file://src/app/layout/AppShell.tsx#L45-L56)
+- [src/app/layout/Sidebar.tsx:150-173](file://src/app/layout/Sidebar.tsx#L150-L173)
+
+**Section sources**
+- [src/app/layout/AppShell.tsx:45-56](file://src/app/layout/AppShell.tsx#L45-L56)
+- [src/app/layout/Sidebar.tsx:150-173](file://src/app/layout/Sidebar.tsx#L150-L173)
 
 ## Troubleshooting Guide
 Common issues and resolutions:
-- Port conflicts
-  - Vite runs on port 1420 with strictPort enabled; ensure it is free or adjust configuration.
-- Tauri dev fails to start
-  - Verify the dev server is reachable at http://localhost:1420.
-  - Confirm the devUrl and frontendDist match the Vite configuration.
-- Rust compilation errors
-  - Run cargo check in src-tauri to diagnose backend issues.
-- Linux build failures
-  - Install missing system dependencies as shown in CI workflows.
-- Test failures
-  - Run npm test to locate failing unit tests; fix or skip as appropriate.
+- Port conflicts during development: ensure the fixed port is free or adjust Vite server configuration
+- Tauri dev URL mismatch: confirm devUrl matches the frontend server address
+- Rust compilation errors: run backend checks and ensure Rust stable toolchain is installed
+- Platform prerequisites: verify Tauri prerequisites for Windows/macOS/Linux
+
+References:
+- [vite.config.ts:25-40](file://vite.config.ts#L25-L40)
+- [src-tauri/tauri.conf.json:6-11](file://src-tauri/tauri.conf.json#L6-L11)
+- [README.md:131-134](file://README.md#L131-L134)
+- [README.md:97-108](file://README.md#L97-L108)
 
 **Section sources**
-- [vite.config.ts:20-41](file://vite.config.ts#L20-L41)
+- [vite.config.ts:25-40](file://vite.config.ts#L25-L40)
 - [src-tauri/tauri.conf.json:6-11](file://src-tauri/tauri.conf.json#L6-L11)
-- [.github/workflows/build-desktop.yml:112-121](file://.github/workflows/build-desktop.yml#L112-L121)
+- [README.md:131-134](file://README.md#L131-L134)
+- [README.md:97-108](file://README.md#L97-L108)
 
 ## Conclusion
-You now have the essentials to set up DevNexus locally, develop in either frontend-only or full Tauri mode, verify builds, and package cross-platform binaries. Use the plugin examples to explore core functionality and refer to the troubleshooting section for common pitfalls.
-
-[No sources needed since this section summarizes without analyzing specific files]
-
-## Appendices
-
-### Appendix A: Environment Requirements Checklist
-- Node.js 20+
-- Rust stable
-- Platform-specific Tauri prerequisites
-- Optional: Linux system dependencies for packaging
-
-**Section sources**
-- [README.md:101-106](file://README.md#L101-L106)
-- [README.md:108-111](file://README.md#L108-L111)
-- [.github/workflows/build-desktop.yml:112-121](file://.github/workflows/build-desktop.yml#L112-L121)
-
-### Appendix B: Key Commands Reference
-- Install dependencies: npm install
-- Frontend dev: npm run dev
-- Full Tauri dev: npm run tauri dev
-- Tests: npm test
-- Build: npm run build
-- Rust check: cd src-tauri && cargo check
-- Package current platform: npm run tauri build
-- Windows: npm run tauri build -- --bundles nsis
-- macOS: npm run tauri build -- --bundles app,dmg
-- Linux: npm run tauri build -- --bundles deb,appimage
-
-**Section sources**
-- [README.md:113-156](file://README.md#L113-L156)
-- [README.md:311-354](file://README.md#L311-L354)
-- [package.json:6-14](file://package.json#L6-L14)
+You are now ready to onboard with DevNexus. Start by installing prerequisites, then run the development environment or build the desktop app. Explore the sidebar to activate plugins, connect your first database or SSH host, and leverage core features like connection management, workspaces, and theme switching. Use the troubleshooting guide for common setup issues.

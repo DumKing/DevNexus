@@ -1977,3 +1977,4 @@ src-tauri/src/plugins/confluence/
 - 09:28 同步官网生成规则：独立官网 `D:\dumking\DevNexus_Doc` 的文档生成器改为中文读取 `README.md`、英文读取 `README_EN.md`，Release 页面分别读取 `docs/releases/cn` 与 `docs/releases/en`；主仓库 release workflow 的 GitHub Release body 改为使用英文发布说明。
 - 09:47 优化官网 Plugin Toolbox 展示：插件卡片从横向滚动条改为分页轮播，每页两行、每行四个插件；鼠标悬停插件区域显示左右翻页箭头，底部圆点展示当前位置并支持跳页；`npm run build -- D:\rdmm` 通过。
 - 09:55 固化 DevNexus 项目级技能规则：新增 `.agents/skills/devnexus-release-workflow/SKILL.md`，覆盖中英文 README、双语 release notes、双语 RepoWiki、`PLAN.md` 实时进度和 `plugin-toolbox.json` 更新要求；`AGENTS.md` 与 `CLAUDE.md` 增加项目技能读取入口。
+- 18:35 追加提交合并后新生成的英文 RepoWiki 结构：将 `.qoder/repowiki/en` 的最新目录与文档作为官网文档中心英文知识库来源提交到 `main`，准备基于最新 `main` 重新打 `v0.10.0` tag。
