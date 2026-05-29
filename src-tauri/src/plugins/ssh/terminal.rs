@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::future::Future;
 use std::io::{Read, Write};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -7,9 +8,8 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use async_trait::async_trait;
 use base64::Engine;
-use russh::keys::key;
+use russh::keys::ssh_key;
 use russh::{client, ChannelMsg, Disconnect};
 use tauri::Emitter;
 use tokio::sync::mpsc::{self, UnboundedSender};
@@ -167,29 +167,29 @@ struct NativeClient {
     pending_output: Arc<Mutex<Vec<u8>>>,
 }
 
-#[async_trait]
 impl client::Handler for NativeClient {
     type Error = russh::Error;
 
-    async fn check_server_key(
+    fn check_server_key(
         &mut self,
-        _server_public_key: &key::PublicKey,
-    ) -> Result<bool, Self::Error> {
-        Ok(true)
+        _server_public_key: &ssh_key::PublicKey,
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send {
+        async { Ok(true) }
     }
 
-    async fn auth_banner(
+    fn auth_banner(
         &mut self,
         banner: &str,
         _session: &mut client::Session,
-    ) -> Result<(), Self::Error> {
-        record_and_emit(
-            &self.app_handle,
-            &self.session_id,
-            &self.pending_output,
-            banner.as_bytes(),
-        );
-        Ok(())
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send {
+        let app_handle = self.app_handle.clone();
+        let session_id = self.session_id.clone();
+        let pending_output = self.pending_output.clone();
+        let banner = banner.as_bytes().to_vec();
+        async move {
+            record_and_emit(&app_handle, &session_id, &pending_output, &banner);
+            Ok(())
+        }
     }
 }
 
@@ -396,7 +396,7 @@ async fn run_native_password_terminal(
         .authenticate_password(conn.username.trim().to_string(), password)
         .await
         .map_err(|err| format!("ssh password auth failed: {err}"))?;
-    if !authenticated {
+    if !authenticated.success() {
         return Err("ssh password auth failed: server rejected credentials".to_string());
     }
 
