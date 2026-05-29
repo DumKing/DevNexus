@@ -51,7 +51,7 @@ jobs:
           Compress-Archive -Path "$portableDir/*" -DestinationPath "portable/DevNexus_${version}_windows_portable.zip" -Force
 
       - name: Upload Windows build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-windows
           path: |
@@ -102,7 +102,7 @@ jobs:
           done
 
       - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-macos-${{ matrix.arch }}
           path: artifacts/macos-${{ matrix.arch }}/*.dmg
@@ -140,7 +140,7 @@ jobs:
         run: npm run tauri build -- --bundles deb,appimage
 
       - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-linux
           path: |

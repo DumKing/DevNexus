@@ -29,7 +29,7 @@ jobs:
         run: npm run tauri build -- --bundles nsis
 
       - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DevNexus-windows-nsis
           path: src-tauri/target/release/bundle/nsis/*.exe
@@ -78,14 +78,14 @@ jobs:
           done
 
       - name: Upload .app bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DevNexus-macOS-${{ matrix.arch }}-app
           path: src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
           if-no-files-found: error
 
       - name: Upload .dmg installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DevNexus-macOS-${{ matrix.arch }}-dmg
           path: artifacts/macos-${{ matrix.arch }}/*.dmg
@@ -124,14 +124,14 @@ jobs:
         run: npm run tauri build -- --bundles deb,appimage
 
       - name: Upload Linux AppImage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DevNexus-linux-appimage
           path: src-tauri/target/release/bundle/appimage/*.AppImage
           if-no-files-found: error
 
       - name: Upload Linux DEB
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DevNexus-linux-deb
           path: src-tauri/target/release/bundle/deb/*.deb
