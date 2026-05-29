@@ -531,7 +531,7 @@ const envId = await invoke<string>("cmd_api_save_environment", {
    ```bash
    # 检查数据库文件是否存在
    ls ~/.local/share/devnexus/devnexus.db
-
+   
    # 检查文件权限
    chmod 644 ~/.local/share/devnexus/devnexus.db
    ```
@@ -558,7 +558,7 @@ const envId = await invoke<string>("cmd_api_save_environment", {
    ```sql
    -- 验证外键约束
    PRAGMA foreign_key_check;
-
+   
    -- 检查重复数据
    SELECT url, COUNT(*) FROM api_requests GROUP BY url HAVING COUNT(*) > 1;
    ```

@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Skills
+
+Before DevNexus release, version iteration, plugin, README, release notes, RepoWiki, website, or `PLAN.md` work, read and follow:
+- `.agents/skills/devnexus-release-workflow/SKILL.md`
+
 ## Commands
 
 | Intent | Command |
@@ -19,7 +24,7 @@ Run a single test file: `npx vitest run tests/app/plugin-registry/registry.test.
 
 ## Release Notes
 
-Keep app versions synchronized across `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. Release note files must be named `docs/releases/vX.Y.Z.md` because the GitHub release workflow reads the file matching the pushed tag name.
+Keep app versions synchronized across `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. Release notes are bilingual: English files live at `docs/releases/en/vX.Y.Z.md` and Chinese files live at `docs/releases/cn/vX.Y.Z.md`. The GitHub release workflow reads the English file matching the pushed tag name.
 
 ## Architecture
 

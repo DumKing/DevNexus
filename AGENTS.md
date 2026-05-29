@@ -2,6 +2,11 @@
 
 This file provides guidance to the AI agent when working with code in this repository.
 
+## Project Skills
+
+Before DevNexus release, version iteration, plugin, README, release notes, RepoWiki, website, or `PLAN.md` work, read and follow:
+- `.agents/skills/devnexus-release-workflow/SKILL.md`
+
 ## Verification
 
 After meaningful changes, run all three:
@@ -36,7 +41,11 @@ Redact hostnames, usernames, access keys, private-key paths, and passwords in fi
 
 Version must stay synchronized across all three files: `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`.
 
-Release notes file `docs/releases/vX.Y.Z.md` must match the tag name exactly — the release workflow reads `docs/releases/${{ github.ref_name }}.md`.
+Release notes are bilingual:
+- English: `docs/releases/en/vX.Y.Z.md`
+- Chinese: `docs/releases/cn/vX.Y.Z.md`
+
+The GitHub release workflow uses the English file at `docs/releases/en/${{ github.ref_name }}.md`, so the file name must still match the pushed tag exactly.
 
 Tag format: `git tag -a v0.5.0 -m "Release v0.5.0"`
 

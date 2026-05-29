@@ -167,7 +167,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: DevNexus ${{ github.ref_name }}
-          body_path: docs/releases/${{ github.ref_name }}.md  # 先注释掉，避免找不到文件
+          body_path: docs/releases/en/${{ github.ref_name }}.md
           files: |
             dist-release/release-windows/**/*.exe
             dist-release/release-windows/**/*.zip
@@ -175,3 +175,19 @@ jobs:
             dist-release/release-linux/**/*.deb
             dist-release/release-linux/**/*.AppImage
           fail_on_unmatched_files: true
+
+      - name: Trigger DevNexus_Doc website rebuild
+        env:
+          GH_TOKEN: ${{ secrets.DEVNEXUS_DOCS_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "DEVNEXUS_DOCS_TOKEN is not configured; skip DevNexus_Doc rebuild dispatch."
+            exit 0
+          fi
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/DumKing/DevNexus_Doc/dispatches \
+            -f event_type=devnexus-release \
+            -f client_payload[tag]="$RELEASE_TAG"

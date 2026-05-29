@@ -1953,3 +1953,27 @@ src-tauri/src/plugins/confluence/
 - 08:46 调整 Mermaid 发布策略为 draw.io 嵌入：Markdown 中的 `mermaid` 代码块不再输出 html 宏、PNG 或普通图片附件；发布时先用 Mermaid 渲染 SVG，再封装为 `.drawio` XML 附件上传，页面正文插入 Confluence draw.io 宏引用该附件，解决位图失真问题并适配已安装 draw.io 插件的 Confluence 环境；本地预览仍使用 Mermaid 实时渲染。
 - 18:51 修复阿里云 OSS/S3 兼容账号无 `ListBuckets` 权限时无法进入 Bucket 列表的问题：S3 连接高级配置将 `Default Bucket` 扩展为 `Manual Buckets`，支持逗号、分号或换行填写多个 Bucket；连接测试在配置手动 Bucket 时改用第一个 Bucket 的 `ListObjectsV2(maxKeys=1)` 验证权限；Bucket 列表在 `ListBuckets` 失败或返回空时回退到手动 Bucket 列表，保障仅授权具体 Bucket 的账号仍可浏览对象。
 - 20:13 优化 OSS/S3 Objects 页面占满主工作区：S3 插件内容区、Objects 卡片和对象列表改为连续 flex 布局；对象表格去掉固定 `520px` 滚动高度，改用 `ResizeObserver` 根据可用空间动态计算滚动区域，Grid/List 两种视图都随窗口尺寸铺满剩余区域。
+
+### 2026-05-28
+
+- 10:58 启动 DevNexus 官网建设：确认采用深色工程感 Landing + 单页中英切换方案；新增独立 `website/` 静态站点（不引入桌面端构建依赖），覆盖 Hero、插件能力、版本时间线、文档入口和下载入口；新增 GitHub Pages Actions workflow，后续 `main` 分支更新 `website/**` 后自动部署到 GitHub Pages。
+- 11:35 优化官网文档体验：将快速开始、版本发布、RepoWiki 从外链卡片改为页面内部 hash 跳转和站内文档面板切换，保留 GitHub 完整内容链接作为次级入口；顶部语言切换左侧新增 GitHub 图标按钮直达项目仓库。
+- 12:01 完成官网站内文档集成：新增 Markdown 静态文档生成脚本，将 `README.md`、`docs/releases/*.md`、`.qoder/repowiki/zh/content/**/*.md` 生成到 `website/content/` 并在官网内直接打开；GitHub Pages workflow 发布前自动重新生成文档；补充 Copyright 与 License 声明页。
+- 12:32 重构官网文档中心交互：新增统一 `website/content/docs.html` 阅读器，顶部标签在“快速开始 / 版本发布”和 `RepoWiki` 间切换；两类文档均采用左侧目录、右侧文档阅读区布局，首页三个文档入口直接进入对应站内阅读位置；语言切换继续使用小国旗图标标识中英文。
+- 14:57 优化官网文档中心目录树：左侧导航从平铺列表改为可展开目录树，“快速开始”目录直接包含 README，“Release”目录展开显示各版本发布文件，RepoWiki 按原始目录聚合展示；语言切换图标改为 CSS 绘制小旗，避免 Windows 将 emoji 国旗显示为 `CN` / `US` 文本。
+- 15:19 精简官网文档中心顶部与语言切换：移除中英文切换图标，仅保留文字下拉；文档中心去掉大标题区域，将“快速开始 / 版本发布”和 `RepoWiki` 两个 tab 放入顶部导航中间；右侧保留文档中心、返回官网、GitHub 和语言切换；站内文档页的顶部链接改为 `_top` 打开，避免在右侧 iframe 中嵌套首页。
+- 16:11 调整官网与文档中心导航语义：官网顶部新增“文档中心”入口并直接定位到 README；文档中心顶部移除自引用的“文档中心”按钮，仅保留“返回官网”；GitHub 改为图标按钮；文档中心语言切换按钮缩小；修复 `doc=readme` 参数未映射到 `readme.html` 导致无法精准打开 README 的问题。
+- 16:33 精简官网首页首屏文案：Hero 标题压缩为“本地优先的开发者工具箱”，副标题改为概括连接管理、调试、文档发布和局域网协作，减少首屏大字信息密度。
+- 16:41 继续优化官网与文档阅读体验：官网顶部 GitHub 入口改为纯图标；文档中心“返回官网”改为绿色强调；站内文档详情页移除顶部 DevNexus、文档中心、返回官网文档和 GitHub 导航，仅保留当前文档所属目录标签，避免 iframe 内重复导航干扰阅读。
+- 16:56 修复官网站内文档 Mermaid 渲染：定位到 Markdown 生成器将 `mermaid` fenced code 输出为普通 `<pre><code data-lang="mermaid">` 的根因；新增 Mermaid 代码块专用转换，生成 `<div class="mermaid">` 图块，并在文档详情页加载 Mermaid 11 ESM 渲染脚本和深色主题样式。
+- 18:16 拆分 DevNexus 官网为独立项目：将站点源码迁移到 `D:\dumking\DevNexus_Doc`，改造为 `src/` 到 `dist/` 的静态构建；独立仓库 Pages workflow 支持手动、main 推送和 DevNexus release dispatch 触发，并从对应 DevNexus tag 读取 README、release notes 与 RepoWiki 生成文档中心；主仓库 release workflow 增加 `DEVNEXUS_DOCS_TOKEN` 驱动的官网重建通知，移除主仓库内旧 `website/` 发布入口。
+- 18:25 完成 DevNexus_Doc 独立站点验证：`npm run build -- D:\rdmm` 成功生成 `dist/`，本地 `localhost:58710` 已切换到独立项目产物；主仓库 `git diff --check`、`npm test`、`npm run build`、`cargo check` 均通过，Vite 大 chunk 警告保持为既有非阻塞提示。
+- 19:06 优化独立官网数据化生成：Plugin Toolbox 改为读取 `D:\dumking\DevNexus_Doc\src\data\plugin-toolbox.json` 并横向滑动展示 10 个插件；首页版本数和插件数改为构建数据自动统计；Release Timeline 根据 `docs/releases/*.md` 和 tag 日期自动生成并默认突出最近 10 个版本；文档中心生成 `README`、Release、RepoWiki 中英文页面，英文 RepoWiki 从 `.qoder/repowiki/en/content` 读取。
+
+### 2026-05-29
+
+- 08:58 优化官网 Release Timeline 左侧文案：移除关于自动生成机制的内部说明，改为面向用户的版本发布与产品演进介绍，并同步中英文文案；`npm run build -- D:\rdmm` 通过，本地浏览器确认 `#releases` 展示新文案。
+- 09:21 拆分 README 与发布说明多语言来源：主仓库 `README.md` 保留中文内容，新增 `README_EN.md` 承载英文内容；发布说明迁移为 `docs/releases/cn/vX.Y.Z.md` 与 `docs/releases/en/vX.Y.Z.md` 双目录结构，并翻译补齐既有版本中文发布说明。
+- 09:28 同步官网生成规则：独立官网 `D:\dumking\DevNexus_Doc` 的文档生成器改为中文读取 `README.md`、英文读取 `README_EN.md`，Release 页面分别读取 `docs/releases/cn` 与 `docs/releases/en`；主仓库 release workflow 的 GitHub Release body 改为使用英文发布说明。
+- 09:47 优化官网 Plugin Toolbox 展示：插件卡片从横向滚动条改为分页轮播，每页两行、每行四个插件；鼠标悬停插件区域显示左右翻页箭头，底部圆点展示当前位置并支持跳页；`npm run build -- D:\rdmm` 通过。
+- 09:55 固化 DevNexus 项目级技能规则：新增 `.agents/skills/devnexus-release-workflow/SKILL.md`，覆盖中英文 README、双语 release notes、双语 RepoWiki、`PLAN.md` 实时进度和 `plugin-toolbox.json` 更新要求；`AGENTS.md` 与 `CLAUDE.md` 增加项目技能读取入口。
