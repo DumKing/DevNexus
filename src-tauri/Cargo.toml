@@ -41,7 +41,7 @@ aws-credential-types = "1.2.10"
 async-trait = "0.1.89"
 mongodb = "3.3.0"
 futures-util = "0.3.32"
-mysql_async = "0.34.2"
+mysql_async = "0.37.0"
 encoding_rs = "0.8.35"
 reqwest = { version = "0.12.24", default-features = false, features = ["rustls-tls", "json", "multipart", "gzip", "brotli", "deflate", "cookies", "blocking"] }
 lapin = "4.4.0"
