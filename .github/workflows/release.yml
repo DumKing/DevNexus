@@ -164,7 +164,7 @@ jobs:
         run: find dist-release -maxdepth 5 -type f -print
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: DevNexus ${{ github.ref_name }}
           body_path: docs/releases/cn/${{ github.ref_name }}.md
