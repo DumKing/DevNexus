@@ -1,9 +1,9 @@
-# .github/workflows/auto-merge-dependabot.yml
-name: Auto Merge Dependabot PRs
+# .github/workflows/auto-merge.yml
+name: Auto Merge PRs
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: write
@@ -11,12 +11,12 @@ permissions:
   checks: read
 
 jobs:
-  auto-merge:
-    if: github.actor == 'dependabot[bot]'
+  enable-auto-merge:
     runs-on: ubuntu-latest
 
     steps:
       - name: Approve Dependabot PR
+        if: github.event.pull_request.user.login == 'dependabot[bot]'
         run: gh pr review "$PR_URL" --approve
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
