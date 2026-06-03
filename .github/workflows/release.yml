@@ -163,11 +163,37 @@ jobs:
       - name: List downloaded release files
         run: find dist-release -maxdepth 5 -type f -print
 
+      - name: Prepare GitHub Release body
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          tag = os.environ["RELEASE_TAG"]
+          repository = os.environ["REPOSITORY"]
+          source = Path("docs/releases/cn") / f"{tag}.md"
+          target = Path("dist-release/release-body.md")
+
+          body = source.read_text(encoding="utf-8")
+          relative_switch = f"[中文](./{tag}.md) | [English](../en/{tag}.md)"
+          github_switch = (
+              f"[中文](https://github.com/{repository}/blob/{tag}/docs/releases/cn/{tag}.md) | "
+              f"[English](https://github.com/{repository}/blob/{tag}/docs/releases/en/{tag}.md)"
+          )
+          if relative_switch in body:
+              body = body.replace(relative_switch, github_switch, 1)
+
+          target.write_text(body, encoding="utf-8")
+          PY
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           name: DevNexus ${{ github.ref_name }}
-          body_path: docs/releases/cn/${{ github.ref_name }}.md
+          body_path: dist-release/release-body.md
           files: |
             dist-release/release-windows/**/*.exe
             dist-release/release-windows/**/*.zip
