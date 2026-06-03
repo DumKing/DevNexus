@@ -1966,18 +1966,41 @@ src-tauri/src/plugins/confluence/
 - 16:33 精简官网首页首屏文案：Hero 标题压缩为“本地优先的开发者工具箱”，副标题改为概括连接管理、调试、文档发布和局域网协作，减少首屏大字信息密度。
 - 16:41 继续优化官网与文档阅读体验：官网顶部 GitHub 入口改为纯图标；文档中心“返回官网”改为绿色强调；站内文档详情页移除顶部 DevNexus、文档中心、返回官网文档和 GitHub 导航，仅保留当前文档所属目录标签，避免 iframe 内重复导航干扰阅读。
 - 16:56 修复官网站内文档 Mermaid 渲染：定位到 Markdown 生成器将 `mermaid` fenced code 输出为普通 `<pre><code data-lang="mermaid">` 的根因；新增 Mermaid 代码块专用转换，生成 `<div class="mermaid">` 图块，并在文档详情页加载 Mermaid 11 ESM 渲染脚本和深色主题样式。
-- 18:16 拆分 DevNexus 官网为独立项目：将站点源码迁移到 `D:\dumking\DevNexus_Doc`，改造为 `src/` 到 `dist/` 的静态构建；独立仓库 Pages workflow 支持手动、main 推送和 DevNexus release dispatch 触发，并从对应 DevNexus tag 读取 README、release notes 与 RepoWiki 生成文档中心；主仓库 release workflow 增加 `DEVNEXUS_DOCS_TOKEN` 驱动的官网重建通知，移除主仓库内旧 `website/` 发布入口。
-- 18:25 完成 DevNexus_Doc 独立站点验证：`npm run build -- D:\rdmm` 成功生成 `dist/`，本地 `localhost:58710` 已切换到独立项目产物；主仓库 `git diff --check`、`npm test`、`npm run build`、`cargo check` 均通过，Vite 大 chunk 警告保持为既有非阻塞提示。
-- 19:06 优化独立官网数据化生成：Plugin Toolbox 改为读取 `D:\dumking\DevNexus_Doc\src\data\plugin-toolbox.json` 并横向滑动展示 10 个插件；首页版本数和插件数改为构建数据自动统计；Release Timeline 根据 `docs/releases/*.md` 和 tag 日期自动生成并默认突出最近 10 个版本；文档中心生成 `README`、Release、RepoWiki 中英文页面，英文 RepoWiki 从 `.qoder/repowiki/en/content` 读取。
+- 18:16 拆分 DevNexus 官网为独立项目：将站点源码迁移到 `<docs-site-repo>`，改造为 `src/` 到 `dist/` 的静态构建；独立仓库 Pages workflow 支持手动、main 推送和 DevNexus release dispatch 触发，并从对应 DevNexus tag 读取 README、release notes 与 RepoWiki 生成文档中心；主仓库 release workflow 增加 `DEVNEXUS_DOCS_TOKEN` 驱动的官网重建通知，移除主仓库内旧 `website/` 发布入口。
+- 18:25 完成 DevNexus_Doc 独立站点验证：`npm run build -- <devnexus-repo>` 成功生成 `dist/`，本地 `localhost:58710` 已切换到独立项目产物；主仓库 `git diff --check`、`npm test`、`npm run build`、`cargo check` 均通过，Vite 大 chunk 警告保持为既有非阻塞提示。
+- 19:06 优化独立官网数据化生成：Plugin Toolbox 改为读取 `<docs-site-repo>/src/data/plugin-toolbox.json` 并横向滑动展示 10 个插件；首页版本数和插件数改为构建数据自动统计；Release Timeline 根据 `docs/releases/*.md` 和 tag 日期自动生成并默认突出最近 10 个版本；文档中心生成 `README`、Release、RepoWiki 中英文页面，英文 RepoWiki 从 `.qoder/repowiki/en/content` 读取。
 
 ### 2026-05-29
 
-- 08:58 优化官网 Release Timeline 左侧文案：移除关于自动生成机制的内部说明，改为面向用户的版本发布与产品演进介绍，并同步中英文文案；`npm run build -- D:\rdmm` 通过，本地浏览器确认 `#releases` 展示新文案。
+- 08:58 优化官网 Release Timeline 左侧文案：移除关于自动生成机制的内部说明，改为面向用户的版本发布与产品演进介绍，并同步中英文文案；`npm run build -- <devnexus-repo>` 通过，本地浏览器确认 `#releases` 展示新文案。
 - 09:21 拆分 README 与发布说明多语言来源：主仓库 `README.md` 保留中文内容，新增 `README_EN.md` 承载英文内容；发布说明迁移为 `docs/releases/cn/vX.Y.Z.md` 与 `docs/releases/en/vX.Y.Z.md` 双目录结构，并翻译补齐既有版本中文发布说明。
-- 09:28 同步官网生成规则：独立官网 `D:\dumking\DevNexus_Doc` 的文档生成器改为中文读取 `README.md`、英文读取 `README_EN.md`，Release 页面分别读取 `docs/releases/cn` 与 `docs/releases/en`；主仓库 release workflow 的 GitHub Release body 改为使用英文发布说明。
-- 09:47 优化官网 Plugin Toolbox 展示：插件卡片从横向滚动条改为分页轮播，每页两行、每行四个插件；鼠标悬停插件区域显示左右翻页箭头，底部圆点展示当前位置并支持跳页；`npm run build -- D:\rdmm` 通过。
+- 09:28 同步官网生成规则：独立官网 `<docs-site-repo>` 的文档生成器改为中文读取 `README.md`、英文读取 `README_EN.md`，Release 页面分别读取 `docs/releases/cn` 与 `docs/releases/en`；主仓库 release workflow 的 GitHub Release body 改为使用英文发布说明。
+- 09:47 优化官网 Plugin Toolbox 展示：插件卡片从横向滚动条改为分页轮播，每页两行、每行四个插件；鼠标悬停插件区域显示左右翻页箭头，底部圆点展示当前位置并支持跳页；`npm run build -- <devnexus-repo>` 通过。
 - 09:55 固化 DevNexus 项目级技能规则：新增 `.agents/skills/devnexus-release-workflow/SKILL.md`，覆盖中英文 README、双语 release notes、双语 RepoWiki、`PLAN.md` 实时进度和 `plugin-toolbox.json` 更新要求；`AGENTS.md` 与 `CLAUDE.md` 增加项目技能读取入口。
 - 18:35 追加提交合并后新生成的英文 RepoWiki 结构：将 `.qoder/repowiki/en` 的最新目录与文档作为官网文档中心英文知识库来源提交到 `main`，准备基于最新 `main` 重新打 `v0.10.0` tag。
 - 21:16-21:46 开源协作与仓库保护基线更新：新增轻量 `ci.yml`，在 PR/main push 上执行 `npm test`、`npm run build`、`cargo check`；`build-desktop.yml` 改为仅手动触发，避免 main push 自动打完整桌面包；新增 CODEOWNERS、Dependabot、PR/Issue 模板、中文默认的 `CONTRIBUTING.md` / `SECURITY.md` 与英文 `_EN.md` 副本；`tag-verify` 改为有效的 `.yml` workflow；GitHub Release 默认读取中文发布说明，所有 `docs/releases/cn` 与 `docs/releases/en` 文件增加中英文互跳链接。远端 GitHub ruleset 同步为 main 必须 PR、1 个 approval、CODEOWNERS、review thread resolved 与 `checks` 状态检查；`v*` tag 保护启用；仓库开启 merge 后删除分支、Dependabot security updates、secret scanning 与 push protection。
 - 23:58 调整 PR 自动合并策略：新增统一 `Auto Merge PRs` workflow，对 `DumKing` 与 `dependabot[bot]` 提交的非 draft PR 自动 approve 并开启 squash auto-merge；其他贡献者 PR 不自动 approve，仅预先开启 auto-merge，待人工 review 与 required checks 满足后由 GitHub 自动合并；全流程继续遵守 main ruleset，不使用 admin 绕过或 direct push。
 - 00:08 细化 PR 自动合并触发顺序：`Auto Merge PRs` workflow 在 approve 与开启 auto-merge 前先等待 required checks 通过，确保 `DumKing` 与 Dependabot PR 符合“CI 通过后自动 approve / auto-merge”的期望；外部贡献者 PR 仍保留人工 review 门槛。
+
+### 2026-06-02
+
+- 14:43 定位并修复 Confluence Publisher 更新页面 409 Conflict：确认根因为更新时依赖本地映射/历史中的旧版本号，后端改为 PUT 前实时读取 Confluence 当前页面版本并提交 current+1，避免多端编辑或本地版本过期导致 Version must be incremented。
+- 14:51 完成 Confluence 409 修复验证：`cargo test confluence::client::tests --lib` 通过（3 个用例），`npm test` 通过（12 个测试文件、39 个用例），`npm run build` 通过（保留既有 Vite 大 chunk 告警），`cargo check` 通过。
+- 16:42 优化 Confluence Publisher 本地预览与发布转换：本地预览改用 react-markdown + remark-gfm 直接渲染 Markdown，移除 Confluence Storage Format 反向预览链路；发布阶段继续将 Mermaid 转为 draw.io 附件，并增强 draw.io XML 的白底画布、尺寸、边距、源码元数据和宏参数。同时为 API Debugger Workspace 增加 Import cURL 弹窗入口，并增强后端 cURL 解析对 URL、Basic Auth、Cookie、GET data、multipart、timeout、redirect、TLS 参数的支持。
+- 17:11 增加应用级设置能力：状态栏新增 Settings 入口，设置抽屉支持手动/启动自动检查更新、LAN Chat 桌面通知开关、开发者操作日志开关；LAN Chat 未读消息在窗口关闭、最小化或聚焦其他会话时可弹桌面通知；调试日志默认关闭并由设置同步到 Tauri 后端；插件中心/插件市场设想单独沉淀到 .doc/plugin-center-market-plan.md，不纳入当前 PLAN。
+
+- 17:25 清理项目隐私信息：将 PLAN.md 与项目级 skill 中的本地绝对路径替换为 <devnexus-repo>、<docs-site-repo> 等通用占位；移除代码示例中的本机下载目录 placeholder 和 SSH 测试里的真实内网 IP；复扫确认未残留本地盘符、用户目录、真实主机名或敏感文件路径。
+- 17:28 完成设置能力与隐私清理验证：git diff --check 通过；隐私关键字复扫未发现本地盘符、用户目录、真实主机名或敏感文件路径残留；
+pm test 通过（14 个测试文件、43 个用例），
+pm run build 通过（保留既有 Vite 大 chunk 警告），cargo check 通过。
+
+### 2026-06-03
+
+- 09:20 增强应用设置与多语言能力：新增轻量 i18n 字典和语言切换设置，默认中文并支持英文；设置页增加插件管理卡片，可启用/禁用内置插件，普通工作区插件至少保留一个；LAN Chat 注册为 PluginManifest 并保持悬浮入口布局，禁用后隐藏聊天入口并停止后台轮询，同时移除窗口头部写死的 v0.9.2 标签。
+- 09:30 升级前端 TypeScript 编译目标：将 	sconfig.json 的 	arget 与 lib 从 ES2020 调整为 ES2022，使 Array.prototype.at、String.prototype.replaceAll 等现代运行时 API 在类型层面可用；保持 DOM/DOM.Iterable 支持不变。
+- 09:33 完成 ES2022 构建目标升级验证：
+pm test 通过（15 个测试文件、49 个用例），
+pm run build 通过（保留既有 Vite 大 chunk 警告），cargo check 通过。
+- 10:20 优化应用设置与连接管理体验：设置页新增开机自启开关，插件管理隐藏内部版本展示并改为搜索、类型筛选、启用数量统计；新增插件分组筛选工具函数，为后续插件数量增长和插件市场预留管理模型；修复 Redis/SSH 编辑连接时丢失原连接 id 导致保存为新连接的问题，并让 Redis/SSH 编辑元数据时留空保留原凭据；Redis、SSH、MongoDB、MySQL 连接页改为可折叠分组和组内横向卡片排列；新增插件级 i18n hook，开始将插件内部文案下放到插件自己的语言包并跟随应用语言设置。
+- 10:48 完成设置与连接管理改造验证：npm test 通过（16 个测试文件、51 个用例），npm run build 通过（保留既有 Vite 大 chunk 警告），cd src-tauri && cargo check 通过；git diff --check 未发现空白错误。
+- 11:26 完成 v0.10.1 发版准备：补齐 S3/OSS 连接页可折叠分组和编辑保留原连接 id；设置页拆分为基础设置与插件管理两个 Tab；LAN Chat 通知改为 Tauri 原生系统通知优先，并在新消息到达时请求窗口注意力；Windows 关闭按钮改为隐藏到系统托盘，最小化仍进入任务栏，真正退出通过托盘菜单；版本同步升级到 0.10.1，更新 README/README_EN 和 docs/releases/cn/en/v0.10.1.md；验证 npm test、npm run build、cd src-tauri && cargo check 均通过，git diff --check 未发现空白错误。

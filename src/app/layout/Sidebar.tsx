@@ -12,6 +12,7 @@ import { Badge, Button, Dropdown, Tooltip } from "antd";
 import type { MenuProps } from "antd";
 import clsx from "clsx";
 
+import { useI18n, pluginLabel } from "@/app/i18n";
 import { getSidebarPlugins } from "@/app/plugin-registry/visibility";
 import { getAll } from "@/app/plugin-registry/registry";
 import { useSettingsStore } from "@/app/store/settings";
@@ -19,7 +20,9 @@ import { useThemeStore } from "@/app/store/theme";
 import { useLanChatStore } from "@/plugins/lan-chat/store/lan-chat";
 
 export function Sidebar() {
-  const plugins = getSidebarPlugins(getAll());
+  const { language, t } = useI18n();
+  const enabledPluginIds = useSettingsStore((state) => state.enabledPluginIds);
+  const plugins = getSidebarPlugins(getAll(), enabledPluginIds);
   const dbPluginIds = new Set(["redis-manager", "mongodb-client", "mysql-client"]);
   const dbPlugins = plugins.filter((plugin) => dbPluginIds.has(plugin.id));
   const topLevelPlugins = plugins.filter((plugin) => !dbPluginIds.has(plugin.id));
@@ -39,12 +42,13 @@ export function Sidebar() {
   const toggleMode = useThemeStore((state) => state.toggleMode);
   const openChatWindow = useLanChatStore((state) => state.openWindow);
   const unreadCount = useLanChatStore((state) => state.window.unreadCount);
+  const lanChatEnabled = getAll().some((plugin) => plugin.id === "lan-chat" && (!enabledPluginIds || enabledPluginIds.includes(plugin.id)));
   const dbGroupActive = dbPlugins.some((plugin) => plugin.id === selectedPluginId);
   const activeDbPlugin = dbPlugins.find((plugin) => plugin.id === selectedPluginId);
   const dbMenuItems: MenuProps["items"] = dbPlugins.map((plugin) => ({
     key: plugin.id,
     icon: plugin.icon,
-    label: plugin.name,
+    label: pluginLabel(language, plugin.id, plugin.name),
   }));
 
   const renderPluginButton = (plugin: (typeof plugins)[number], nested = false) => {
@@ -60,14 +64,14 @@ export function Sidebar() {
         onClick={() => setSelectedPluginId(plugin.id)}
       >
         {sidebarCollapsed ? null : (
-          <span className="devnexus-sidebar__plugin-label">{plugin.name}</span>
+          <span className="devnexus-sidebar__plugin-label">{pluginLabel(language, plugin.id, plugin.name)}</span>
         )}
       </Button>
     );
 
     if (sidebarCollapsed) {
       return (
-        <Tooltip placement="right" title={plugin.name}>
+        <Tooltip placement="right" title={pluginLabel(language, plugin.id, plugin.name)}>
           {button}
         </Tooltip>
       );
@@ -106,7 +110,7 @@ export function Sidebar() {
                 onClick: ({ key }) => setSelectedPluginId(String(key)),
               }}
             >
-              <Tooltip placement="right" title={activeDbPlugin ? `DB Tools: ${activeDbPlugin.name}` : "DB Tools"}>
+              <Tooltip placement="right" title={activeDbPlugin ? t("sidebar.dbToolsWithActive", { name: pluginLabel(language, activeDbPlugin.id, activeDbPlugin.name) }) : t("sidebar.dbTools")}>
                 <Button
                   className={clsx("devnexus-sidebar__group-button", {
                     "devnexus-sidebar__group-button--active": dbGroupActive,
@@ -126,7 +130,7 @@ export function Sidebar() {
                 icon={<DatabaseOutlined />}
                 onClick={() => setDbToolsCollapsed(!dbToolsCollapsed)}
               >
-                <span className="devnexus-sidebar__plugin-label">DB Tools</span>
+                <span className="devnexus-sidebar__plugin-label">{t("sidebar.dbTools")}</span>
                 <DownOutlined
                   className={clsx("devnexus-sidebar__group-chevron", {
                     "devnexus-sidebar__group-chevron--collapsed": dbToolsCollapsed,
@@ -148,7 +152,7 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="devnexus-sidebar__bottom">
-        <Tooltip placement={sidebarCollapsed ? "right" : "top"} title="LAN Chat">
+        {lanChatEnabled ? <Tooltip placement={sidebarCollapsed ? "right" : "top"} title={t("lan.title")}>
           <Badge count={unreadCount} size="small" overflowCount={99}>
             <Button
               type="text"
@@ -156,18 +160,18 @@ export function Sidebar() {
               icon={<MessageOutlined />}
               onClick={openChatWindow}
             >
-              {sidebarCollapsed ? null : "Chat"}
+              {sidebarCollapsed ? null : t("app.chat")}
             </Button>
           </Badge>
-        </Tooltip>
-        <Tooltip placement={sidebarCollapsed ? "right" : "top"} title={mode === "light" ? "Dark" : "Light"}>
+        </Tooltip> : null}
+        <Tooltip placement={sidebarCollapsed ? "right" : "top"} title={mode === "light" ? t("app.themeDark") : t("app.themeLight")}>
           <Button
             type="text"
             className="devnexus-sidebar__utility-button"
             icon={mode === "light" ? <MoonOutlined /> : <SunOutlined />}
             onClick={toggleMode}
           >
-            {sidebarCollapsed ? null : mode === "light" ? "Dark" : "Light"}
+            {sidebarCollapsed ? null : mode === "light" ? t("app.themeDark") : t("app.themeLight")}
           </Button>
         </Tooltip>
       </div>

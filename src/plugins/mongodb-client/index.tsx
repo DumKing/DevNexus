@@ -1,6 +1,7 @@
 import { ClusterOutlined } from "@ant-design/icons";
 import { Segmented, Space, Typography } from "antd";
 
+import { useI18n } from "@/app/i18n";
 import type { PluginManifest } from "@/app/plugin-registry/types";
 import { DatabaseBrowser } from "@/plugins/mongodb-client/views/DatabaseBrowser";
 import { DocumentBrowser } from "@/plugins/mongodb-client/views/DocumentBrowser";
@@ -12,6 +13,7 @@ import { ServerStatus } from "@/plugins/mongodb-client/views/ServerStatus";
 import { useMongoConnectionsStore } from "@/plugins/mongodb-client/store/mongodb-connections";
 
 function MongoClientRoot() {
+  const { t } = useI18n();
   const tab = useMongoConnectionsStore((state) => state.workspaceTab);
   const setWorkspaceTab = useMongoConnectionsStore((state) => state.setWorkspaceTab);
   const activeConnId = useMongoConnectionsStore((state) => state.activeConnId);
@@ -46,18 +48,18 @@ function MongoClientRoot() {
             )
           }
           options={[
-            { label: "Connections", value: "connections" },
-            { label: "Databases", value: "databases" },
-            { label: "Documents", value: "documents" },
-            { label: "Query", value: "query" },
-            { label: "Indexes", value: "indexes" },
-            { label: "Import/Export", value: "importExport" },
-            { label: "Server", value: "server" },
+            { label: t("tabs.connections"), value: "connections" },
+            { label: t("tabs.databases"), value: "databases" },
+            { label: t("tabs.documents"), value: "documents" },
+            { label: t("tabs.query"), value: "query" },
+            { label: t("tabs.indexes"), value: "indexes" },
+            { label: t("tabs.importExport"), value: "importExport" },
+            { label: t("tabs.server"), value: "server" },
           ]}
         />
         {activeConnId ? (
           <Typography.Text type="secondary">
-            Active: {activeConnId}
+            {t("common.active")}: {activeConnId}
             {activeDatabase ? ` / ${activeDatabase}` : ""}
             {activeCollection ? `.${activeCollection}` : ""}
           </Typography.Text>

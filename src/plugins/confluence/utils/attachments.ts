@@ -102,13 +102,30 @@ export async function uploadMermaidDiagrams(
   if (diagrams.length === 0) return results;
 
   const mermaid = await import("mermaid");
-  mermaid.default.initialize({ startOnLoad: false, securityLevel: "strict" });
+  mermaid.default.initialize({
+    startOnLoad: false,
+    securityLevel: "strict",
+    theme: "default",
+    themeVariables: {
+      fontFamily: "Arial, sans-serif",
+      primaryColor: "#eef6ff",
+      primaryBorderColor: "#5b8def",
+      lineColor: "#5f6f89",
+      background: "#ffffff",
+      mainBkg: "#eef6ff",
+      textColor: "#1f2937",
+    },
+  });
 
   for (const diagram of diagrams) {
     try {
       const renderId = `devnexus-${diagram.fileName.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
       const rendered = await mermaid.default.render(renderId, diagram.source);
-      const drawioXml = createDrawioXml({ fileName: diagram.fileName, svg: rendered.svg });
+      const drawioXml = createDrawioXml({
+        fileName: diagram.fileName,
+        svg: rendered.svg,
+        mermaidSource: diagram.source,
+      });
       const base64 = textToBase64(drawioXml);
       const attachment = await invoke<AttachmentInfo>("cmd_confluence_upload_attachment", {
         connId,

@@ -8,6 +8,7 @@ import { mqClientPlugin } from "@/plugins/mq-client";
 import { networkToolsPlugin } from "@/plugins/network-tools";
 import { s3ClientPlugin } from "@/plugins/s3-client";
 import { sshClientPlugin } from "@/plugins/ssh-client";
+import { lanChatPlugin } from "@/plugins/lan-chat";
 
 let initialized = false;
 
@@ -25,6 +26,7 @@ export function registerBuiltinPlugins(): void {
   register(apiDebuggerPlugin);
   register(mqClientPlugin);
   register(confluencePlugin);
+  register(lanChatPlugin);
   initialized = true;
 }
 

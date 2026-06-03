@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { clearRegistry, getAll, register } from "@/app/plugin-registry/registry";
 import { apiDebuggerPlugin } from "@/plugins/api-debugger";
+import { lanChatPlugin } from "@/plugins/lan-chat";
 import { mqClientPlugin } from "@/plugins/mq-client";
 import { networkToolsPlugin } from "@/plugins/network-tools";
+import { getSidebarPlugins } from "@/app/plugin-registry/visibility";
 
 describe("network tools plugin manifest", () => {
   beforeEach(() => {
@@ -26,5 +28,12 @@ describe("network tools plugin manifest", () => {
     register(mqClientPlugin);
 
     expect(getAll().map((plugin) => plugin.id)).toEqual(["mq-client"]);
+  });
+
+  it("registers LAN Chat as a floating plugin manifest outside the sidebar", () => {
+    register(lanChatPlugin);
+
+    expect(getAll().map((plugin) => plugin.id)).toEqual(["lan-chat"]);
+    expect(getSidebarPlugins(getAll()).map((plugin) => plugin.id)).toEqual([]);
   });
 });

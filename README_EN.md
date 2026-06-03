@@ -4,7 +4,7 @@
 
 DevNexus is a plugin-based desktop toolbox built with **Tauri 2 + React 19 + TypeScript + Rust**. It is designed for everyday development, operations, and data-management workflows, bringing common connection-oriented and diagnostic tools into one lightweight desktop application.
 
-Current version: `0.10.0`
+Current version: `0.10.1`
 
 ### Features
 
@@ -12,14 +12,14 @@ Current version: `0.10.0`
 |--------|--------|--------------|
 | Redis Manager | Implemented | Connection management, DB switching, key tree browsing, key editing, console, server info, import/export |
 | SSH Client | Implemented | SSH profiles, multi-tab terminal, key management, quick commands, port forwarding |
-| S3 Browser | Implemented | S3 profiles, bucket browsing, manual bucket lists, object browsing, upload/download, preview, presigned URLs, bucket settings |
+| S3 Browser | Implemented | S3 profiles, collapsible grouped connection list, bucket browsing, manual bucket lists, object browsing, upload/download, preview, presigned URLs, bucket settings |
 | MongoDB Client | Implemented | Profiles, database/collection browsing, document CRUD, find/aggregate/command workspace, indexes, import/export, server status |
 | MySQL Client | Implemented | Profiles, database/table browsing, table-data CRUD, SQL workspace, indexes, import/export, server status |
 | Network Tools | Implemented | Ping, TCP port checks, DNS lookup, Traceroute, diagnostic history and rerun |
 | API Debugger | Implemented | HTTP request builder/sender, collections/environments, response inspection, history rerun, cURL import, redacted export |
 | MQ Client | Implemented | RabbitMQ/Kafka profiles, resource browsing, publish/produce, safe consume preview, templates, history rerun, and redaction |
 | Confluence Publisher | Implemented | Confluence Server/Data Center profiles, Monaco Markdown editor, live Storage Format preview, Space/Page selector, one-click publish/update, LaTeX/Mermaid/local-image attachment upload, file-to-page mapping |
-| LAN Chat | Iterating | Bottom-left chat launcher, floating chat window, LAN room/direct chat, online presence, group member list, inline image/audio previews, file-send progress, local history and transfer records |
+| LAN Chat | Iterating | Bottom-left chat launcher, floating chat window, LAN room/direct chat, online presence, group member list, native notifications, taskbar attention flash, inline image/audio previews, file-send progress, local history and transfer records |
 
 ### Highlights
 
@@ -28,6 +28,7 @@ Current version: `0.10.0`
 - **Lightweight desktop shell**: Tauri provides a small native shell while Rust handles protocol and system-facing work.
 - **Cross-platform packaging**: GitHub Actions build Windows, macOS, and Linux packages.
 - **Operational safety**: pagination, virtualized browsing, dangerous-command confirmations, and scroll-safe dashboards are built into the UX.
+- **Configurable workspace**: Settings separates basic options and plugin management, covering language, startup launch, update checks, desktop notifications, developer logs, and categorized built-in plugin toggles.
 
 ### Tech Stack
 
@@ -54,7 +55,7 @@ Current version: `0.10.0`
 
 ```text
 src/
-  app/                         app shell, layout, plugin registry
+  app/                         app shell, layout, plugin registry, settings, notifications, update checks
   plugins/                     frontend plugins
     redis-manager/
     ssh-client/
@@ -152,7 +153,7 @@ npm run tauri build -- --bundles deb,appimage
 Windows artifact example:
 
 ```text
-src-tauri/target/release/bundle/nsis/DevNexus_0.10.0_x64-setup.exe
+src-tauri/target/release/bundle/nsis/DevNexus_0.10.1_x64-setup.exe
 ```
 
 ### Release Process
@@ -185,11 +186,11 @@ git push origin vX.Y.Z
 
 ### Known Limits
 
-- Redis Sentinel/Cluster, S3 lifecycle editing, and in-app auto-update are still roadmap items tracked in `PLAN.md`. If an S3-compatible account cannot call `ListBuckets`, configure `Manual Buckets` in the connection advanced settings with comma- or newline-separated bucket names.
+- Redis Sentinel/Cluster, S3 lifecycle editing, and in-app automatic update installation are still roadmap items tracked in `PLAN.md`. If an S3-compatible account cannot call `ListBuckets`, configure `Manual Buckets` in the connection advanced settings with comma- or newline-separated bucket names.
 - MySQL currently targets common MySQL 5.7/8.0 workflows. MariaDB may work when protocol-compatible, but it is not the primary validation target.
 - Network Tools currently support one-shot diagnostics and history reruns, not bulk port scanning or continuous monitoring. API Debugger supports HTTP debugging, collections, environments, history, cURL import, and redacted export, but does not yet promise full Postman Collection or script ecosystem compatibility. MQ Client supports RabbitMQ and Kafka daily debugging; RabbitMQ browsing requires the Management Plugin, Kafka initially supports PLAINTEXT and SASL/PLAIN, TLS fields are reserved, and destructive queue/topic/offset operations are intentionally out of scope.
 - Confluence Publisher targets Confluence Server / Data Center 7.x+ via REST API v1 with Basic Auth and SSO-friendly Personal Access Token (Bearer) auth; Confluence Cloud OAuth is not in scope yet. LaTeX output relies on `mathinline` / `mathblock` macros; Mermaid is rendered to SVG, wrapped into `.drawio` attachments, and embedded through the Confluence draw.io macro, so it no longer depends on the Confluence `html` macro or raster PNG output. Unsupported code macro languages such as `http` omit the language parameter to avoid publish failures. Local image attachments only follow filesystem paths; remote `http(s)://` and `data:` URLs are left untouched.
-- LAN Chat now keeps one built-in public room plus direct chats. It includes UDP discovery, TCP message delivery, online/offline presence, per-conversation unread badges, inline image/audio/video previews, and sender-hosted LAN file URLs. Chat messages carry only file metadata and download tokens; generic files are pulled from the sender service after the receiver chooses a save path.
+- LAN Chat now keeps one built-in public room plus direct chats. It includes UDP discovery, TCP message delivery, online/offline presence, per-conversation unread badges, native system notifications, taskbar attention flashing, inline image/audio/video previews, and sender-hosted LAN file URLs. Chat messages carry only file metadata and download tokens; generic files are pulled from the sender service after the receiver chooses a save path. On Windows, the close button hides DevNexus to the system tray; use the tray menu to exit.
 - Large tables, buckets, or collections should be browsed with pagination, prefixes, or query filters rather than loading everything at once.
 
 ### Roadmap

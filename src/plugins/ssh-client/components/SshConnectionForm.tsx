@@ -15,6 +15,8 @@ import { useSshConnectionsStore } from "@/plugins/ssh-client/store/ssh-connectio
 import { useSshKeysStore } from "@/plugins/ssh-client/store/keys";
 import { KeyImportForm } from "@/plugins/ssh-client/components/KeyImportForm";
 import type { SshConnectionFormData, SshConnectionInfo } from "@/plugins/ssh-client/types";
+import { usePluginI18n } from "@/app/i18n/plugin";
+import { sshTranslations } from "@/plugins/ssh-client/i18n";
 
 interface SshConnectionFormProps {
   open: boolean;
@@ -39,6 +41,7 @@ export function SshConnectionForm({
   const fetchKeys = useSshKeysStore((state) => state.fetchKeys);
   const importKey = useSshKeysStore((state) => state.importKey);
   const { message } = App.useApp();
+  const { t } = usePluginI18n(sshTranslations);
 
   useEffect(() => {
     if (!open) {
@@ -85,50 +88,53 @@ export function SshConnectionForm({
   const onSubmit = async () => {
     const values = await form.validateFields();
     await saveConnection(values);
-    message.success("SSH connection saved.");
+    message.success(t("saved"));
     onSaved();
   };
 
   const onTest = async () => {
     const values = await form.validateFields();
     const result = await testConnection(values);
-    message.info(`SSH handshake success: ${result.millis} ms`);
+    message.info(t("handshake", { millis: result.millis }));
   };
 
   return (
     <Modal
-      title={initialValues?.id ? "Edit SSH Connection" : "New SSH Connection"}
+      title={initialValues?.id ? t("formEditTitle") : t("formNewTitle")}
       open={open}
       onCancel={onCancel}
       onOk={() => void onSubmit()}
       destroyOnClose
-      okText="Save"
+      okText={t("save")}
       width={720}
       footer={(_, { OkBtn, CancelBtn }) => (
         <Space>
-          <Button onClick={() => void onTest()}>Test Connection</Button>
+          <Button onClick={() => void onTest()}>{t("testConnection")}</Button>
           <CancelBtn />
           <OkBtn />
         </Space>
       )}
     >
       <Form form={form} layout="vertical">
+        <Form.Item name="id" hidden>
+          <Input />
+        </Form.Item>
         <Tabs
           items={[
             {
               key: "basic",
-              label: "Basic",
+              label: t("basic"),
               children: (
                 <>
-                  <Form.Item label="Name" name="name" rules={[{ required: true }]}>
+                  <Form.Item label={t("name")} name="name" rules={[{ required: true }]}>
                     <Input placeholder="SSH Dev Server" />
                   </Form.Item>
-                  <Form.Item label="Group" name="groupName">
-                    <Input placeholder="Default" />
+                  <Form.Item label={t("group")} name="groupName">
+                    <Input placeholder={t("defaultGroup")} />
                   </Form.Item>
                   <Space style={{ width: "100%" }}>
                     <Form.Item
-                      label="Host"
+                      label={t("host")}
                       name="host"
                       rules={[{ required: true }]}
                       style={{ flex: 1 }}
@@ -136,7 +142,7 @@ export function SshConnectionForm({
                       <Input placeholder="192.168.1.12" />
                     </Form.Item>
                     <Form.Item
-                      label="Port"
+                      label={t("port")}
                       name="port"
                       rules={[{ required: true, type: "number", min: 1, max: 65535 }]}
                       style={{ width: 140 }}
@@ -145,31 +151,36 @@ export function SshConnectionForm({
                     </Form.Item>
                   </Space>
                   <Form.Item
-                    label="Username"
+                    label={t("username")}
                     name="username"
                     rules={[{ required: true }]}
                   >
                     <Input placeholder="root" />
                   </Form.Item>
-                  <Form.Item label="Auth Type" name="authType">
+                  <Form.Item label={t("authType")} name="authType">
                     <Select
                       options={[
-                        { label: "Password", value: "password" },
-                        { label: "Key", value: "key" },
-                        { label: "Key + Passphrase", value: "key_password" },
+                        { label: t("passwordAuth"), value: "password" },
+                        { label: t("keyAuth"), value: "key" },
+                        { label: t("keyPassphraseAuth"), value: "key_password" },
                       ]}
                     />
                   </Form.Item>
                   {authType === "password" ? (
-                    <Form.Item label="Password" name="password" rules={[{ required: true }]}>
-                      <Input.Password placeholder="password" />
+                    <Form.Item
+                      label={t("password")}
+                      name="password"
+                      rules={[{ required: !initialValues?.id, message: t("passwordRequired") }]}
+                      extra={initialValues?.id ? t("keepPassword") : undefined}
+                    >
+                      <Input.Password placeholder={initialValues?.id ? t("keepPlaceholder") : t("password")} />
                     </Form.Item>
                   ) : null}
                   {authType === "key" || authType === "key_password" ? (
                     <>
-                      <Form.Item label="Key" name="keyId" rules={[{ required: true }]}>
+                      <Form.Item label={t("key")} name="keyId" rules={[{ required: true }]}>
                         <Select
-                          placeholder="select key"
+                          placeholder={t("selectKey")}
                           options={keys.map((item) => ({
                             label: `${item.name} (${item.keyType})`,
                             value: item.id,
@@ -177,17 +188,18 @@ export function SshConnectionForm({
                         />
                       </Form.Item>
                       <Form.Item label=" ">
-                        <Button onClick={() => setImportOpen(true)}>Import Key File</Button>
+                        <Button onClick={() => setImportOpen(true)}>{t("importKeyFile")}</Button>
                       </Form.Item>
                     </>
                   ) : null}
                   {authType === "key_password" ? (
                     <Form.Item
-                      label="Key Passphrase"
+                      label={t("keyPassphrase")}
                       name="keyPassphrase"
-                      rules={[{ required: true }]}
+                      rules={[{ required: !initialValues?.id, message: t("passphraseRequired") }]}
+                      extra={initialValues?.id ? t("keepPassphrase") : undefined}
                     >
-                      <Input.Password placeholder="passphrase" />
+                      <Input.Password placeholder={t("keyPassphrase")} />
                     </Form.Item>
                   ) : null}
                 </>
@@ -195,10 +207,10 @@ export function SshConnectionForm({
             },
             {
               key: "advanced",
-              label: "Advanced",
+              label: t("advanced"),
               children: (
                 <>
-                  <Form.Item label="Jump Host" name="jumpHostId">
+                  <Form.Item label={t("jumpHost")} name="jumpHostId">
                     <Select
                       allowClear
                       options={allConnections.map((item) => ({
@@ -208,7 +220,7 @@ export function SshConnectionForm({
                     />
                   </Form.Item>
                   <Space style={{ width: "100%" }}>
-                    <Form.Item label="Encoding" name="encoding" style={{ flex: 1 }}>
+                    <Form.Item label={t("encoding")} name="encoding" style={{ flex: 1 }}>
                       <Select
                         options={[
                           { label: "UTF-8", value: "utf-8" },
@@ -217,7 +229,7 @@ export function SshConnectionForm({
                       />
                     </Form.Item>
                     <Form.Item
-                      label="Keepalive (seconds)"
+                      label={t("keepalive")}
                       name="keepaliveInterval"
                       style={{ width: 220 }}
                     >
@@ -243,7 +255,7 @@ export function SshConnectionForm({
                 form.setFieldValue("keyId", latest.id);
               }
               setImportOpen(false);
-              message.success("Key imported. Please continue saving the SSH connection.");
+              message.success(t("keyImported"));
             })
             .catch((err) => {
               message.error(String(err));

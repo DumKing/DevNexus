@@ -97,7 +97,14 @@ pub fn save_connection(app_handle: &tauri::AppHandle, form: ConnectionForm) -> R
     let conn = open_db(app_handle)?;
     let id = form.id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let created_at = chrono::Utc::now().to_rfc3339();
-    let encrypted_password = crate::crypto::encrypt(app_handle, &form.password.unwrap_or_default())?;
+    let existing_password = get_password(app_handle, &id)?;
+    let raw_password = form.password.unwrap_or_default();
+    let password = if raw_password.is_empty() {
+        existing_password.unwrap_or_default()
+    } else {
+        raw_password
+    };
+    let encrypted_password = crate::crypto::encrypt(app_handle, &password)?;
 
     conn.execute(
         r#"

@@ -2,6 +2,7 @@ import { Col, Row, Segmented } from "antd";
 import { useMemo } from "react";
 import { DesktopOutlined } from "@ant-design/icons";
 
+import { useI18n } from "@/app/i18n";
 import type { PluginManifest } from "@/app/plugin-registry/types";
 import { SshConnectionList } from "@/plugins/ssh-client/views/SshConnectionList";
 import { TerminalWorkspace } from "@/plugins/ssh-client/views/TerminalWorkspace";
@@ -10,6 +11,7 @@ import { TunnelManager } from "@/plugins/ssh-client/views/TunnelManager";
 import { useSshWorkspaceStore } from "@/plugins/ssh-client/store/workspace";
 
 function SshClientRoot() {
+  const { t } = useI18n();
   const tab = useSshWorkspaceStore((state) => state.activeView);
   const setActiveView = useSshWorkspaceStore((state) => state.setActiveView);
 
@@ -42,10 +44,10 @@ function SshClientRoot() {
               )
             }
             options={[
-              { label: "Connections", value: "connections" },
-              { label: "Terminal", value: "terminal" },
-              { label: "Keys", value: "keys" },
-              { label: "Tunnels", value: "tunnels" },
+              { label: t("tabs.connections"), value: "connections" },
+              { label: t("tabs.terminal"), value: "terminal" },
+              { label: t("tabs.keys"), value: "keys" },
+              { label: t("tabs.tunnels"), value: "tunnels" },
             ]}
           />
         </Col>

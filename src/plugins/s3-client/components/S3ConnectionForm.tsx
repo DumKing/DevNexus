@@ -1,7 +1,9 @@
 import { App, Button, Form, Input, Modal, Select, Space, Switch, Tabs } from "antd";
 import { useEffect } from "react";
 
+import { usePluginI18n } from "@/app/i18n/plugin";
 import { useS3ConnectionsStore } from "@/plugins/s3-client/store/s3-connections";
+import { s3Translations } from "@/plugins/s3-client/i18n";
 import type { S3ConnectionFormData, S3ConnectionInfo, S3Provider } from "@/plugins/s3-client/types";
 
 interface S3ConnectionFormProps {
@@ -49,6 +51,7 @@ export function S3ConnectionForm({
   const saveConnection = useS3ConnectionsStore((state) => state.saveConnection);
   const testConnection = useS3ConnectionsStore((state) => state.testConnection);
   const { message } = App.useApp();
+  const { t } = usePluginI18n(s3Translations);
 
   useEffect(() => {
     if (!open) return;
@@ -96,19 +99,19 @@ export function S3ConnectionForm({
   const onSubmit = async () => {
     const values = await form.validateFields();
     await saveConnection(values);
-    message.success("S3 connection saved.");
+    message.success(t("saved"));
     onSaved();
   };
 
   const onTest = async () => {
     const values = await form.validateFields();
     const result = await testConnection(values);
-    message.info(`S3 connection success: ${result.millis} ms`);
+    message.info(t("successLatency", { millis: result.millis }));
   };
 
   return (
     <Modal
-      title={initialValues?.id ? "Edit S3 Connection" : "New S3 Connection"}
+      title={initialValues?.id ? t("formEditTitle") : t("formNewTitle")}
       open={open}
       onCancel={onCancel}
       onOk={() => void onSubmit()}
@@ -116,32 +119,35 @@ export function S3ConnectionForm({
       destroyOnClose
       footer={(_, { OkBtn, CancelBtn }) => (
         <Space>
-          <Button onClick={() => void onTest()}>Test Connection</Button>
+          <Button onClick={() => void onTest()}>{t("testConnection")}</Button>
           <CancelBtn />
           <OkBtn />
         </Space>
       )}
     >
       <Form form={form} layout="vertical">
+        <Form.Item name="id" hidden>
+          <Input />
+        </Form.Item>
         <Tabs
           items={[
             {
               key: "basic",
-              label: "Basic",
+              label: t("basic"),
               children: (
                 <>
-                  <Form.Item label="Name" name="name" rules={[{ required: true }]}>
+                  <Form.Item label={t("name")} name="name" rules={[{ required: true }]}>
                     <Input placeholder="S3 Production" />
                   </Form.Item>
-                  <Form.Item label="Group" name="groupName">
-                    <Input placeholder="Default" />
+                  <Form.Item label={t("group")} name="groupName">
+                    <Input placeholder={t("defaultGroup")} />
                   </Form.Item>
-                  <Form.Item label="Provider" name="provider" rules={[{ required: true }]}>
+                  <Form.Item label={t("provider")} name="provider" rules={[{ required: true }]}>
                     <Select options={providerOptions} />
                   </Form.Item>
                   <Space style={{ width: "100%" }} align="start">
                     <Form.Item
-                      label="Region"
+                      label={t("regionLabel")}
                       name="region"
                       rules={[{ required: true }]}
                       style={{ flex: 1 }}
@@ -153,7 +159,7 @@ export function S3ConnectionForm({
                       />
                     </Form.Item>
                     <Form.Item
-                      label="Endpoint"
+                      label={t("endpoint")}
                       name="endpoint"
                       style={{ flex: 1.2 }}
                       rules={[
@@ -161,7 +167,7 @@ export function S3ConnectionForm({
                           validator: async (_, value) => {
                             const currentProvider = form.getFieldValue("provider") as S3Provider;
                             if (currentProvider === "custom" && !String(value ?? "").trim()) {
-                              throw new Error("endpoint is required for custom provider");
+                              throw new Error(t("endpointRequired"));
                             }
                           },
                         },
@@ -171,21 +177,21 @@ export function S3ConnectionForm({
                     </Form.Item>
                   </Space>
                   <Form.Item
-                    label="Access Key ID"
+                    label={t("accessKeyId")}
                     name="accessKeyId"
                     rules={[{ required: true }]}
                   >
                     <Input placeholder="AKIA..." />
                   </Form.Item>
                   <Form.Item
-                    label="Secret Access Key"
+                    label={t("secretAccessKey")}
                     name="secretAccessKey"
                     rules={
                       initialValues?.id
                         ? []
-                        : [{ required: true, message: "secretAccessKey is required" }]
+                        : [{ required: true, message: t("secretRequired") }]
                     }
-                    extra={initialValues?.id ? "Leave empty to keep current secret." : undefined}
+                    extra={initialValues?.id ? t("secretKeep") : undefined}
                   >
                     <Input.Password placeholder="secret" />
                   </Form.Item>
@@ -194,21 +200,21 @@ export function S3ConnectionForm({
             },
             {
               key: "advanced",
-              label: "Advanced",
+              label: t("advanced"),
               children: (
                 <>
                   <Form.Item
-                    label="Path Style"
+                    label={t("pathStyle")}
                     name="pathStyle"
                     valuePropName="checked"
-                    extra="Enable for MinIO and some S3-compatible providers."
+                    extra={t("pathStyleHelp")}
                   >
                     <Switch />
                   </Form.Item>
                   <Form.Item
-                    label="Manual Buckets"
+                    label={t("manualBuckets")}
                     name="defaultBucket"
-                    extra="Optional. Use this when the account cannot call ListBuckets, for example Aliyun OSS policies scoped to specific buckets. Separate multiple buckets with commas or new lines."
+                    extra={t("manualBucketsHelp")}
                   >
                     <Input.TextArea
                       autoSize={{ minRows: 2, maxRows: 5 }}

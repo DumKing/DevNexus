@@ -3,6 +3,8 @@ import { useEffect } from "react";
 
 import type { ConnectionFormData } from "@/plugins/redis-manager/types";
 import { useConnectionsStore } from "@/plugins/redis-manager/store/connections";
+import { usePluginI18n } from "@/app/i18n/plugin";
+import { redisTranslations } from "@/plugins/redis-manager/i18n";
 
 interface ConnectionFormProps {
   open: boolean;
@@ -21,6 +23,7 @@ export function ConnectionForm({
   const saveConnection = useConnectionsStore((state) => state.saveConnection);
   const testConnection = useConnectionsStore((state) => state.testConnection);
   const { message } = App.useApp();
+  const { t } = usePluginI18n(redisTranslations);
 
   useEffect(() => {
     if (!open) {
@@ -43,43 +46,46 @@ export function ConnectionForm({
     const values = await form.validateFields();
     await saveConnection(values);
     onSaved();
-    message.success("Connection saved.");
+    message.success(t("saved"));
   };
 
   const onTest = async () => {
     const values = await form.validateFields();
     const result = await testConnection(values);
-    message.info(`Connection latency: ${result.millis} ms`);
+    message.info(t("latency", { millis: result.millis }));
   };
 
   return (
     <Modal
-      title={initialValues?.id ? "Edit Connection" : "New Connection"}
+      title={initialValues?.id ? t("formEditTitle") : t("formNewTitle")}
       open={open}
       onCancel={onCancel}
       onOk={() => void onSubmit()}
       destroyOnClose
-      okText="Save"
+      okText={t("save")}
       footer={(_, { OkBtn, CancelBtn }) => (
         <Space>
-          <Button onClick={() => void onTest()}>Test Connection</Button>
+          <Button onClick={() => void onTest()}>{t("testConnection")}</Button>
           <CancelBtn />
           <OkBtn />
         </Space>
       )}
     >
       <Form form={form} layout="vertical">
-        <Form.Item label="Name" name="name" rules={[{ required: true }]}>
+        <Form.Item name="id" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item label={t("name")} name="name" rules={[{ required: true }]}>
           <Input placeholder="Redis Dev" />
         </Form.Item>
-        <Form.Item label="Group" name="groupName">
-          <Input placeholder="Default" />
+        <Form.Item label={t("group")} name="groupName">
+          <Input placeholder={t("defaultGroup")} />
         </Form.Item>
-        <Form.Item label="Host" name="host" rules={[{ required: true }]}>
+        <Form.Item label={t("host")} name="host" rules={[{ required: true }]}>
           <Input placeholder="127.0.0.1" />
         </Form.Item>
         <Form.Item
-          label="Port"
+          label={t("port")}
           name="port"
           rules={[
             { required: true },
@@ -88,10 +94,10 @@ export function ConnectionForm({
         >
           <InputNumber min={1} max={65535} style={{ width: "100%" }} />
         </Form.Item>
-        <Form.Item label="Password" name="password">
-          <Input.Password placeholder="optional" />
+        <Form.Item label={t("password")} name="password" extra={initialValues?.id ? t("passwordKeep") : undefined}>
+          <Input.Password placeholder={initialValues?.id ? t("passwordKeepPlaceholder") : t("optional")} />
         </Form.Item>
-        <Form.Item label="DB" name="dbIndex">
+        <Form.Item label={t("db")} name="dbIndex">
           <Select
             options={Array.from({ length: 16 }, (_, idx) => ({
               label: String(idx),
@@ -99,7 +105,7 @@ export function ConnectionForm({
             }))}
           />
         </Form.Item>
-        <Form.Item label="Connection Type" name="connectionType">
+        <Form.Item label={t("connectionType")} name="connectionType">
           <Select
             options={[
               { label: "Standalone", value: "Standalone" },

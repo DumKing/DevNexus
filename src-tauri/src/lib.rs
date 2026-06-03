@@ -2,6 +2,7 @@
 mod db;
 mod dev_log;
 mod plugins;
+mod tray;
 
 #[cfg(target_os = "macos")]
 use tauri::Manager;
@@ -12,6 +13,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
@@ -19,6 +25,7 @@ pub fn run() {
             }
 
             db::init::run(app.handle())?;
+            tray::init(app.handle())?;
             let handle = app.handle().clone();
             dev_log::record(&handle, "info", "app", "DevNexus started", None);
             Ok(())
@@ -223,6 +230,8 @@ pub fn run() {
             plugins::mq::commands::cmd_mq_list_saved_messages,
             plugins::mq::commands::cmd_mq_save_message_template,
             plugins::mq::commands::cmd_mq_delete_message_template,
+            dev_log::cmd_dev_log_get_enabled,
+            dev_log::cmd_dev_log_set_enabled,
             dev_log::cmd_dev_log_list,
             dev_log::cmd_dev_log_clear,
             plugins::lan_chat::commands::cmd_lan_chat_get_device_identity,
