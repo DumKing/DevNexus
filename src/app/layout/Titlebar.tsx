@@ -66,7 +66,7 @@ export function Titlebar() {
           danger
           icon={<CloseOutlined />}
           disabled={!appWindow}
-          onClick={() => appWindow?.close()}
+          onClick={() => appWindow?.hide()}
         />
       </Space>
     </header>

@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 
 import { useMongoConnectionsStore } from "@/plugins/mongodb-client/store/mongodb-connections";
 import type { MongoConnectionFormData, MongoConnectionInfo } from "@/plugins/mongodb-client/types";
+import { usePluginI18n } from "@/app/i18n/plugin";
+import { mongoTranslations } from "@/plugins/mongodb-client/i18n";
 
 interface MongoConnectionFormProps {
   open: boolean;
@@ -18,6 +20,7 @@ export function MongoConnectionForm({ open, initial, onClose }: MongoConnectionF
   const testConnection = useMongoConnectionsStore((state) => state.testConnection);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const { t } = usePluginI18n(mongoTranslations);
 
   useEffect(() => {
     if (!open) return;
@@ -44,7 +47,7 @@ export function MongoConnectionForm({ open, initial, onClose }: MongoConnectionF
     setSaving(true);
     try {
       await saveConnection(values);
-      message.success("MongoDB connection saved");
+      message.success(t("saved"));
       onClose();
     } finally {
       setSaving(false);
@@ -56,7 +59,7 @@ export function MongoConnectionForm({ open, initial, onClose }: MongoConnectionF
     setTesting(true);
     try {
       const result = await testConnection(values);
-      message.success(`Connected in ${result.millis} ms${result.serverVersion ? ` / ${result.serverVersion}` : ""}`);
+      message.success(t("connectedIn", { millis: result.millis, version: result.serverVersion ? ` / ${result.serverVersion}` : "" }));
     } finally {
       setTesting(false);
     }
@@ -65,7 +68,7 @@ export function MongoConnectionForm({ open, initial, onClose }: MongoConnectionF
   return (
     <Modal
       open={open}
-      title={initial ? "Edit MongoDB Connection" : "New MongoDB Connection"}
+      title={initial ? t("formEditTitle") : t("formNewTitle")}
       onCancel={onClose}
       onOk={submit}
       confirmLoading={saving}
@@ -74,7 +77,7 @@ export function MongoConnectionForm({ open, initial, onClose }: MongoConnectionF
       footer={(_, { CancelBtn, OkBtn }) => (
         <Space>
           <Button loading={testing} onClick={test}>
-            Test
+            {t("test")}
           </Button>
           <CancelBtn />
           <OkBtn />
@@ -85,13 +88,13 @@ export function MongoConnectionForm({ open, initial, onClose }: MongoConnectionF
         <Form.Item name="id" hidden>
           <Input />
         </Form.Item>
-        <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+        <Form.Item name="name" label={t("name")} rules={[{ required: true }]}>
           <Input placeholder="Production MongoDB" />
         </Form.Item>
-        <Form.Item name="groupName" label="Group">
+        <Form.Item name="groupName" label={t("group")}>
           <Input placeholder="DEV / PROD" />
         </Form.Item>
-        <Form.Item name="mode" label="Connection Mode">
+        <Form.Item name="mode" label={t("connectionMode")}>
           <Radio.Group
             options={[
               { label: "URI", value: "uri" },
@@ -103,32 +106,32 @@ export function MongoConnectionForm({ open, initial, onClose }: MongoConnectionF
           items={[
             {
               key: "basic",
-              label: "Basic",
+              label: t("basic"),
               children:
                 mode === "uri" ? (
                   <Form.Item
                     name="uri"
-                    label="MongoDB URI"
-                    rules={[{ required: !initial, message: "URI is required for new URI connections" }]}
-                    extra={initial ? "Leave blank to keep the saved encrypted URI." : undefined}
+                    label={t("mongoUri")}
+                    rules={[{ required: !initial, message: t("uriRequired") }]}
+                    extra={initial ? t("uriKeep") : undefined}
                   >
                     <Input.Password placeholder="mongodb://user:password@localhost:27017/admin" />
                   </Form.Item>
                 ) : (
                   <>
-                    <Form.Item name="host" label="Host" rules={[{ required: true }]}>
+                    <Form.Item name="host" label={t("host")} rules={[{ required: true }]}>
                       <Input placeholder="localhost" />
                     </Form.Item>
-                    <Form.Item name="port" label="Port" rules={[{ required: true }]}>
+                    <Form.Item name="port" label={t("port")} rules={[{ required: true }]}>
                       <InputNumber min={1} max={65535} style={{ width: "100%" }} />
                     </Form.Item>
-                    <Form.Item name="username" label="Username">
+                    <Form.Item name="username" label={t("username")}>
                       <Input />
                     </Form.Item>
                     <Form.Item
                       name="password"
-                      label="Password"
-                      extra={initial ? "Leave blank to keep the saved encrypted password." : undefined}
+                      label={t("password")}
+                      extra={initial ? t("passwordKeep") : undefined}
                     >
                       <Input.Password />
                     </Form.Item>
@@ -137,16 +140,16 @@ export function MongoConnectionForm({ open, initial, onClose }: MongoConnectionF
             },
             {
               key: "advanced",
-              label: "Advanced",
+              label: t("advanced"),
               children: (
                 <>
-                  <Form.Item name="authDatabase" label="Auth Database">
+                  <Form.Item name="authDatabase" label={t("authDatabase")}>
                     <Input placeholder="admin" />
                   </Form.Item>
-                  <Form.Item name="defaultDatabase" label="Default Database">
+                  <Form.Item name="defaultDatabase" label={t("defaultDatabase")}>
                     <Input placeholder="optional" />
                   </Form.Item>
-                  <Form.Item name="replicaSet" label="Replica Set">
+                  <Form.Item name="replicaSet" label={t("replicaSet")}>
                     <Input placeholder="rs0" />
                   </Form.Item>
                   <Space size={24}>

@@ -39,11 +39,16 @@ describe("confluence markdown converter", () => {
     const drawio = createDrawioXml({
       fileName: "mermaid-demo.drawio",
       svg: '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><text>A</text></svg>',
+      mermaidSource: "graph TD; A-->B;",
     });
 
     expect(drawio).toContain("<mxfile");
-    expect(drawio).toContain('<diagram name="mermaid-demo"');
+    expect(drawio).toContain('name="mermaid-demo"');
     expect(drawio).toContain("data:image/svg+xml,");
     expect(drawio).toContain("mxGraphModel");
+    expect(drawio).toContain("fillColor=#ffffff");
+    expect(drawio).toContain("imageAspect=1");
+    expect(drawio).toContain("graph TD; A--&gt;B;");
+    expect(drawio).toContain('visible="0"');
   });
 });

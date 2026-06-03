@@ -17,7 +17,7 @@ interface ConsoleState {
   setInput: (value: string) => void;
   loadHistory: (connId: string) => Promise<void>;
   moveHistory: (direction: "up" | "down") => string | null;
-  execute: (connId: string, command: string, confirmDangerous?: boolean) => Promise<void>;
+  execute: (connId: string, command: string, confirmDangerous?: boolean) => Promise<RedisValue>;
 }
 
 export const useConsoleStore = create<ConsoleState>()((set) => ({
@@ -70,5 +70,6 @@ export const useConsoleStore = create<ConsoleState>()((set) => ({
         },
       ],
     }));
+    return result;
   },
 }));

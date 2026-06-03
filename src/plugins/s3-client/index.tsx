@@ -1,6 +1,7 @@
 import { AppstoreOutlined } from "@ant-design/icons";
 import { Segmented, Space, Typography } from "antd";
 
+import { useI18n } from "@/app/i18n";
 import type { PluginManifest } from "@/app/plugin-registry/types";
 import { ObjectBrowser } from "@/plugins/s3-client/views/ObjectBrowser";
 import { useS3ConnectionsStore } from "@/plugins/s3-client/store/s3-connections";
@@ -8,6 +9,7 @@ import { BucketList } from "@/plugins/s3-client/views/BucketList";
 import { S3ConnectionList } from "@/plugins/s3-client/views/S3ConnectionList";
 
 function S3ClientRoot() {
+  const { t } = useI18n();
   const tab = useS3ConnectionsStore((state) => state.workspaceTab);
   const setWorkspaceTab = useS3ConnectionsStore((state) => state.setWorkspaceTab);
   const activeConnId = useS3ConnectionsStore((state) => state.activeConnId);
@@ -36,14 +38,14 @@ function S3ClientRoot() {
             }
           }}
           options={[
-            { label: "Connections", value: "connections" },
-            { label: "Buckets", value: "buckets" },
-            { label: "Objects", value: "objects" },
+            { label: t("tabs.connections"), value: "connections" },
+            { label: t("tabs.buckets"), value: "buckets" },
+            { label: t("tabs.objects"), value: "objects" },
           ]}
         />
         {activeConnId ? (
           <Typography.Text type="secondary">
-            Active: {activeConnId}
+            {t("common.active")}: {activeConnId}
             {selectedBucket ? ` / ${selectedBucket}` : ""}
           </Typography.Text>
         ) : null}

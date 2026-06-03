@@ -9,3 +9,11 @@ export async function listDevLogs(): Promise<DevLogEntry[]> {
 export async function clearDevLogs(): Promise<void> {
   await invoke("cmd_dev_log_clear");
 }
+
+export async function getDevLogEnabled(): Promise<boolean> {
+  return invoke("cmd_dev_log_get_enabled");
+}
+
+export async function setDevLogEnabled(enabled: boolean): Promise<void> {
+  await invoke("cmd_dev_log_set_enabled", { enabled });
+}

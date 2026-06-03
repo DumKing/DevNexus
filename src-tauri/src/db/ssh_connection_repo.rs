@@ -119,9 +119,21 @@ pub fn save_ssh_connection(app_handle: &tauri::AppHandle, form: SshConnectionFor
     let id = form.id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let created_at = chrono::Utc::now().to_rfc3339();
 
-    let password_encrypted = crate::crypto::encrypt(app_handle, &form.password.unwrap_or_default())?;
-    let key_passphrase_encrypted =
-        crate::crypto::encrypt(app_handle, &form.key_passphrase.unwrap_or_default())?;
+    let (current_password, current_key_passphrase) = get_ssh_auth_secret(app_handle, &id)?;
+    let raw_password = form.password.unwrap_or_default();
+    let password = if raw_password.is_empty() {
+        current_password.unwrap_or_default()
+    } else {
+        raw_password
+    };
+    let raw_key_passphrase = form.key_passphrase.unwrap_or_default();
+    let key_passphrase = if raw_key_passphrase.is_empty() {
+        current_key_passphrase.unwrap_or_default()
+    } else {
+        raw_key_passphrase
+    };
+    let password_encrypted = crate::crypto::encrypt(app_handle, &password)?;
+    let key_passphrase_encrypted = crate::crypto::encrypt(app_handle, &key_passphrase)?;
 
     conn.execute(
         r#"

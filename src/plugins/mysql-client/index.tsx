@@ -1,6 +1,7 @@
 import { DatabaseOutlined } from "@ant-design/icons";
 import { Segmented, Space, Typography } from "antd";
 
+import { useI18n } from "@/app/i18n";
 import type { PluginManifest } from "@/app/plugin-registry/types";
 import { DatabaseBrowser } from "@/plugins/mysql-client/views/DatabaseBrowser";
 import { ImportExport } from "@/plugins/mysql-client/views/ImportExport";
@@ -12,6 +13,7 @@ import { TableData } from "@/plugins/mysql-client/views/TableData";
 import { useMysqlConnectionsStore, type MysqlWorkspaceTab } from "@/plugins/mysql-client/store/mysql-connections";
 
 function MysqlClientRoot() {
+  const { t } = useI18n();
   const tab = useMysqlConnectionsStore((state) => state.workspaceTab);
   const setWorkspaceTab = useMysqlConnectionsStore((state) => state.setWorkspaceTab);
   const activeConnId = useMysqlConnectionsStore((state) => state.activeConnId);
@@ -19,8 +21,8 @@ function MysqlClientRoot() {
   const activeTable = useMysqlConnectionsStore((state) => state.activeTable);
   return <div style={{ width: "100%", height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
     <Space style={{ width: "100%", justifyContent: "space-between" }}>
-      <Segmented value={tab} onChange={(value) => setWorkspaceTab(value as MysqlWorkspaceTab)} options={[{ label: "Connections", value: "connections" }, { label: "Databases", value: "databases" }, { label: "Table Data", value: "tableData" }, { label: "SQL", value: "sql" }, { label: "Indexes", value: "indexes" }, { label: "Import/Export", value: "importExport" }, { label: "Server", value: "server" }]} />
-      {activeConnId ? <Typography.Text type="secondary">Active: {activeConnId}{activeDatabase ? ` / ${activeDatabase}` : ""}{activeTable ? `.${activeTable}` : ""}</Typography.Text> : null}
+      <Segmented value={tab} onChange={(value) => setWorkspaceTab(value as MysqlWorkspaceTab)} options={[{ label: t("tabs.connections"), value: "connections" }, { label: t("tabs.databases"), value: "databases" }, { label: t("tabs.tableData"), value: "tableData" }, { label: t("tabs.sql"), value: "sql" }, { label: t("tabs.indexes"), value: "indexes" }, { label: t("tabs.importExport"), value: "importExport" }, { label: t("tabs.server"), value: "server" }]} />
+      {activeConnId ? <Typography.Text type="secondary">{t("common.active")}: {activeConnId}{activeDatabase ? ` / ${activeDatabase}` : ""}{activeTable ? `.${activeTable}` : ""}</Typography.Text> : null}
     </Space>
     <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
       {tab === "connections" ? <MysqlConnectionList /> : null}

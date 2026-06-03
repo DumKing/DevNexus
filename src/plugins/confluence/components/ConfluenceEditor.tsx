@@ -1,13 +1,13 @@
 import { Button, Popconfirm, Space, Tooltip, Typography } from "antd";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CloudUploadOutlined, FileAddOutlined, FolderOpenOutlined, SaveOutlined, SettingOutlined } from "@ant-design/icons";
 import Editor from "@monaco-editor/react";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 
 import { useConfluenceStore } from "@/plugins/confluence/store/confluence";
-import { markdownToPreviewHtml } from "@/plugins/confluence/utils/converter";
 import { ConnectionSettings } from "@/plugins/confluence/components/ConnectionSettings";
+import { MarkdownPreview } from "@/plugins/confluence/components/MarkdownPreview";
 import { PageTreeSidebar } from "@/plugins/confluence/components/PageTreeSidebar";
 import { PublishHistoryPanel } from "@/plugins/confluence/components/PublishHistoryPanel";
 import { PublishDialog } from "@/plugins/confluence/components/PublishDialog";
@@ -26,48 +26,10 @@ export function ConfluenceEditor() {
 
   const [showSettings, setShowSettings] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
-  const previewRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     void fetchConnections();
   }, [fetchConnections]);
-
-  const previewHtml = useMemo(() => {
-    try {
-      return markdownToPreviewHtml(markdownContent);
-    } catch {
-      return "<p style='color:red'>Conversion error</p>";
-    }
-  }, [markdownContent]);
-
-  useEffect(() => {
-    const preview = previewRef.current;
-    if (!preview) return;
-    const nodes = Array.from(preview.querySelectorAll<HTMLElement>(".confluence-mermaid-preview"));
-    if (nodes.length === 0) return;
-    let cancelled = false;
-    void import("mermaid").then((mermaid) => {
-      if (cancelled) return;
-      mermaid.default.initialize({ startOnLoad: false, securityLevel: "strict" });
-      nodes.forEach((node, index) => {
-        const source = decodeURIComponent(node.dataset.mermaid ?? "");
-        if (!source) return;
-        const renderId = `preview-mermaid-${Date.now()}-${index}`;
-        mermaid.default.render(renderId, source)
-          .then(({ svg }) => {
-            if (!cancelled) node.innerHTML = svg;
-          })
-          .catch((err) => {
-            if (!cancelled) {
-              node.innerHTML = `<pre style="white-space:pre-wrap;color:#cf1322">${escapeHtml(String(err))}</pre>`;
-            }
-          });
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [previewHtml]);
 
   const currentMapping = (currentFilePath ? fileMappings.find((m) => m.filePath === currentFilePath) : null) ?? currentPageMapping;
 
@@ -179,12 +141,9 @@ export function ConfluenceEditor() {
             />
           </div>
 
-          {/* Confluence Preview */}
-          <div ref={previewRef} style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "16px 24px", fontFamily: "Arial, sans-serif", fontSize: 14, lineHeight: 1.6 }}>
-            <div
-              dangerouslySetInnerHTML={{ __html: previewHtml }}
-              style={{ maxWidth: "100%" }}
-            />
+          {/* Markdown Preview */}
+          <div style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "16px 24px" }}>
+            <MarkdownPreview markdown={markdownContent} />
           </div>
         </div>
       </div>
@@ -193,12 +152,4 @@ export function ConfluenceEditor() {
       <PublishDialog open={showPublish} onClose={() => setShowPublish(false)} />
     </div>
   );
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

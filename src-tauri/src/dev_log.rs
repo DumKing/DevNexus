@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use chrono::Utc;
@@ -21,6 +22,7 @@ pub struct DevLogEntry {
 }
 
 static LOGS: OnceLock<Mutex<VecDeque<DevLogEntry>>> = OnceLock::new();
+static ENABLED: AtomicBool = AtomicBool::new(false);
 
 fn logs() -> &'static Mutex<VecDeque<DevLogEntry>> {
     LOGS.get_or_init(|| Mutex::new(VecDeque::with_capacity(MAX_LOGS)))
@@ -33,6 +35,10 @@ pub fn record(
     message: impl Into<String>,
     details: Option<String>,
 ) {
+    if !ENABLED.load(Ordering::Relaxed) {
+        return;
+    }
+
     let entry = DevLogEntry {
         id: Uuid::new_v4().to_string(),
         timestamp: Utc::now().to_rfc3339(),
@@ -50,6 +56,16 @@ pub fn record(
     }
 
     let _ = app_handle.emit(EVENT_NAME, entry);
+}
+
+#[tauri::command]
+pub fn cmd_dev_log_get_enabled() -> bool {
+    ENABLED.load(Ordering::Relaxed)
+}
+
+#[tauri::command]
+pub fn cmd_dev_log_set_enabled(enabled: bool) {
+    ENABLED.store(enabled, Ordering::Relaxed);
 }
 
 #[tauri::command]

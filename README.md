@@ -4,7 +4,7 @@
 
 DevNexus 是一个基于 **Tauri 2 + React 19 + TypeScript + Rust** 的插件化桌面工具箱，面向开发、运维和日常数据管理场景。它把常用的连接类工具放进同一个轻量桌面应用里，当前重点覆盖 Redis、SSH、S3、MongoDB、MySQL、Network 诊断、API 调试、MQ 调试和 Confluence 发布。
 
-当前版本：`0.10.0`
+当前版本：`0.10.1`
 
 ### 核心能力
 
@@ -12,14 +12,14 @@ DevNexus 是一个基于 **Tauri 2 + React 19 + TypeScript + Rust** 的插件化
 |------|------|----------|
 | Redis Manager | 已实现 | 连接管理、DB 切换、Key 树浏览、Key 详情编辑、命令控制台、Server 信息、导入导出 |
 | SSH Client | 已实现 | SSH 连接管理、多标签 Terminal、密钥管理、快捷命令、端口转发 |
-| S3 Browser | 已实现 | S3 连接管理、Bucket 浏览、手动 Bucket 列表、Object 浏览、上传下载、预览、预签名 URL、Bucket 设置 |
+| S3 Browser | 已实现 | S3 连接管理、可折叠分组连接列表、Bucket 浏览、手动 Bucket 列表、Object 浏览、上传下载、预览、预签名 URL、Bucket 设置 |
 | MongoDB Client | 已实现 | 连接管理、数据库/集合浏览、文档 CRUD、查询/聚合、索引、导入导出、Server 状态 |
 | MySQL Client | 已实现 | 连接管理、库表浏览、表数据 CRUD、SQL 查询、索引、导入导出、Server 状态 |
 | Network Tools | 已实现 | Ping、TCP 端口检测、DNS 解析、Traceroute、诊断历史与复跑 |
 | API Debugger | 已实现 | HTTP 请求构建与发送、集合/环境变量、响应查看、历史复跑、cURL 导入、脱敏导出 |
 | MQ Client | 已实现 | RabbitMQ/Kafka 连接管理、资源浏览、消息发送、临时消费预览、消息模板、历史复跑与安全脱敏 |
 | Confluence Publisher | 已实现 | Confluence Server/Data Center 连接管理、Monaco Markdown 编辑器、Storage Format 实时预览、Space/Page 选择、一键发布/更新、LaTeX/Mermaid/本地图片附件上传、文件→页面映射 |
-| LAN Chat | 持续增强 | 左下角聊天入口、悬浮聊天窗、局域网房间/私聊、在线状态、群成员列表、图片/音频内联预览、文件发送进度、本机历史与传输记录 |
+| LAN Chat | 持续增强 | 左下角聊天入口、悬浮聊天窗、局域网房间/私聊、在线状态、群成员列表、系统通知、任务栏闪烁提醒、图片/音频内联预览、文件发送进度、本机历史与传输记录 |
 
 ### 产品特点
 
@@ -28,6 +28,7 @@ DevNexus 是一个基于 **Tauri 2 + React 19 + TypeScript + Rust** 的插件化
 - **轻量桌面体验**：使用 Tauri 2，前端由 Vite 构建，后端由 Rust 提供系统能力和连接协议能力。
 - **跨平台打包**：内置 Windows、macOS、Linux 的 GitHub Actions 构建与 Release 流程。
 - **面向实际运维**：包含虚拟列表、分页加载、危险命令确认、可滚动监控页面等避免误操作和卡顿的细节。
+- **可配置工作台**：应用设置支持基础设置与插件管理分栏，可切换语言、开机自启、更新检查、桌面通知、开发者日志，并按分类启用/禁用内置插件。
 
 ### 技术栈
 
@@ -55,7 +56,7 @@ DevNexus 是一个基于 **Tauri 2 + React 19 + TypeScript + Rust** 的插件化
 
 ```text
 src/
-  app/                         应用壳、布局、插件注册表
+  app/                         应用壳、布局、插件注册表、设置、通知、更新检查
   plugins/                     前端插件实现
     redis-manager/
     ssh-client/
@@ -154,7 +155,7 @@ npm run tauri build -- --bundles deb,appimage
 Windows 产物示例：
 
 ```text
-src-tauri/target/release/bundle/nsis/DevNexus_0.10.0_x64-setup.exe
+src-tauri/target/release/bundle/nsis/DevNexus_0.10.1_x64-setup.exe
 ```
 
 ### 发布流程
@@ -187,11 +188,11 @@ git push origin vX.Y.Z
 
 ### 当前限制
 
-- Redis Sentinel/Cluster、S3 生命周期编辑、应用内自动更新等能力仍按 `PLAN.md` 继续迭代。S3 兼容服务账号如果没有 `ListBuckets` 权限，可在连接高级配置中填写 `Manual Buckets`，用逗号或换行指定可访问 Bucket。
+- Redis Sentinel/Cluster、S3 生命周期编辑、应用内自动安装更新等能力仍按 `PLAN.md` 继续迭代。S3 兼容服务账号如果没有 `ListBuckets` 权限，可在连接高级配置中填写 `Manual Buckets`，用逗号或换行指定可访问 Bucket。
 - MySQL 当前优先覆盖 MySQL 5.7/8.0 常用管理能力；MariaDB 基础协议兼容时可尝试使用，但不是当前验收重点。
 - Network 工具首版只做单次诊断与历史复跑，不做批量端口扫描或持续监控。API Debugger 首版支持 HTTP 调试、集合、环境、历史、cURL 导入和脱敏导出，暂不承诺完整 Postman Collection/脚本生态兼容。MQ Client 首版支持 RabbitMQ 与 Kafka 日常调试；RabbitMQ 浏览依赖 Management Plugin，Kafka 首版支持 PLAINTEXT 与 SASL/PLAIN，TLS 字段预留但不承诺完整证书链管理；首版不做 queue purge/delete、topic 创建/删除、offset commit 或 broker 配置修改。
 - Confluence Publisher 首版面向 Confluence Server / Data Center 7.x+ REST API v1，支持 Basic Auth 和 SSO 场景常用的 Personal Access Token（Bearer）；暂不支持 Confluence Cloud OAuth；LaTeX 依赖目标空间已启用 `mathinline`/`mathblock` 宏；Mermaid 会在发布时渲染为 SVG 并封装成 `.drawio` 附件，通过 Confluence draw.io 宏嵌入页面，不再依赖 Confluence `html` 宏或位图 PNG；不在 Confluence 代码宏语言白名单内的代码块（如 `http`）会自动省略 language 参数，避免发布失败；本地图片附件仅自动处理本机文件路径，远程 `http(s)://` 和 `data:` URL 保持原样。
-- LAN Chat 首版以局域网内使用为边界：入口位于左下角主题按钮旁，聊天以悬浮窗呈现，不占用左侧主工具导航；当前只保留固定公共聊天室和私聊。当前已完成本机身份、消息、传输记录、UDP 发现、TCP 消息投递、在线/离线状态、会话未读角标，以及图片/音频/视频自动预览；文件发送改为发送者本地局域网文件服务承载，消息只传递 fileId/token/文件元数据，普通文件下载时由接收端选择保存路径后拉取。
+- LAN Chat 首版以局域网内使用为边界：入口位于左下角主题按钮旁，聊天以悬浮窗呈现，不占用左侧主工具导航；当前只保留固定公共聊天室和私聊。当前已完成本机身份、消息、传输记录、UDP 发现、TCP 消息投递、在线/离线状态、会话未读角标、原生系统通知和任务栏闪烁提醒，以及图片/音频/视频自动预览；文件发送改为发送者本地局域网文件服务承载，消息只传递 fileId/token/文件元数据，普通文件下载时由接收端选择保存路径后拉取。Windows 下关闭按钮会隐藏到系统托盘，真正退出请使用托盘菜单。
 - 大表、大桶、大集合场景应优先使用分页、前缀过滤或查询条件，避免一次性加载过多数据。
 
 ### 路线图

@@ -713,28 +713,183 @@ pub fn cmd_api_clear_history(app_handle: tauri::AppHandle) -> Result<(), String>
 pub fn cmd_api_import_curl(curl: String) -> Result<ApiSendRequest, String> {
     let mut method = "GET".to_string();
     let mut headers = Vec::new();
+    let mut cookies = Vec::new();
+    let mut params = Vec::new();
     let mut body: Option<ApiBodyConfig> = None;
     let mut url = String::new();
+    let mut auth: Option<ApiAuthConfig> = None;
+    let mut timeout_ms = Some(DEFAULT_TIMEOUT_MS);
+    let mut follow_redirects = Some(false);
+    let mut validate_ssl = Some(true);
+    let mut use_get_with_data = false;
     let tokens = shell_words(&curl);
     let mut iter = tokens.into_iter().peekable();
     while let Some(token) = iter.next() {
-        match token.as_str() {
+        let (flag, inline_value) = split_curl_assignment(&token);
+        match flag.as_str() {
             "curl" => {}
-            "-X" | "--request" => if let Some(value) = iter.next() { method = value.to_uppercase(); },
-            "-H" | "--header" => if let Some(value) = iter.next() {
-                if let Some((key, val)) = value.split_once(':') {
-                    headers.push(ApiKeyValue { key: key.trim().to_string(), value: val.trim().to_string(), enabled: true, secret: Some(is_sensitive_key(key)) });
+            "-X" | "--request" => if let Some(value) = inline_value.or_else(|| iter.next()) { method = value.to_uppercase(); },
+            "--url" => if let Some(value) = inline_value.or_else(|| iter.next()) { url = value; },
+            "-G" | "--get" => {
+                use_get_with_data = true;
+                method = "GET".to_string();
+            }
+            "-I" | "--head" => method = "HEAD".to_string(),
+            "-L" | "--location" => follow_redirects = Some(true),
+            "-k" | "--insecure" => validate_ssl = Some(false),
+            "--max-time" | "--connect-timeout" => if let Some(value) = inline_value.or_else(|| iter.next()) {
+                if let Ok(seconds) = value.parse::<f64>() {
+                    timeout_ms = Some((seconds * 1000.0).round().clamp(500.0, 300_000.0) as u64);
                 }
             },
-            "-d" | "--data" | "--data-raw" | "--data-binary" => if let Some(value) = iter.next() {
-                if method == "GET" { method = "POST".to_string(); }
-                body = Some(ApiBodyConfig { body_type: "raw".to_string(), raw: Some(value), form: None, multipart: None, binary_path: None, content_type: None });
+            "-A" | "--user-agent" => if let Some(value) = inline_value.or_else(|| iter.next()) {
+                headers.push(api_pair("User-Agent", &value, false));
             },
+            "-u" | "--user" => if let Some(value) = inline_value.or_else(|| iter.next()) {
+                let (username, password) = value.split_once(':').unwrap_or((&value, ""));
+                auth = Some(ApiAuthConfig {
+                    auth_type: "basic".to_string(),
+                    username: Some(username.to_string()),
+                    password: Some(password.to_string()),
+                    token: None,
+                    key: None,
+                    value: None,
+                    add_to: None,
+                });
+            },
+            "-b" | "--cookie" => if let Some(value) = inline_value.or_else(|| iter.next()) {
+                let parsed = parse_cookie_pairs(&value);
+                if parsed.is_empty() {
+                    headers.push(api_pair("Cookie", &value, true));
+                } else {
+                    cookies.extend(parsed);
+                }
+            },
+            "-H" | "--header" => if let Some(value) = inline_value.or_else(|| iter.next()) {
+                if let Some((key, val)) = value.split_once(':') {
+                    headers.push(api_pair(key.trim(), val.trim(), is_sensitive_key(key)));
+                }
+            },
+            "-d" | "--data" | "--data-raw" | "--data-binary" | "--data-ascii" | "--data-urlencode" => if let Some(value) = inline_value.or_else(|| iter.next()) {
+                if use_get_with_data {
+                    params.extend(parse_query_pairs(&value));
+                } else {
+                    if method == "GET" { method = "POST".to_string(); }
+                    body = Some(raw_body_from_curl_data(value, &headers));
+                }
+            },
+            "-F" | "--form" | "--form-string" => if let Some(value) = inline_value.or_else(|| iter.next()) {
+                if method == "GET" { method = "POST".to_string(); }
+                push_form_body(&mut body, value);
+            },
+            "--compressed" | "-s" | "--silent" | "-S" | "--show-error" | "-i" | "--include" => {}
+            value if value.starts_with("-X") && value.len() > 2 => method = value[2..].to_uppercase(),
+            value if value.starts_with("-H") && value.len() > 2 => {
+                let header = &value[2..];
+                if let Some((key, val)) = header.split_once(':') {
+                    headers.push(api_pair(key.trim(), val.trim(), is_sensitive_key(key)));
+                }
+            }
+            value if value.starts_with("-d") && value.len() > 2 => {
+                let data = value[2..].to_string();
+                if use_get_with_data {
+                    params.extend(parse_query_pairs(&data));
+                } else {
+                    if method == "GET" { method = "POST".to_string(); }
+                    body = Some(raw_body_from_curl_data(data, &headers));
+                }
+            }
             value if value.starts_with("http://") || value.starts_with("https://") => url = value.to_string(),
             _ => {}
         }
     }
-    Ok(ApiSendRequest { request_id: None, method, url, params: Vec::new(), headers, cookies: Vec::new(), auth: None, body, timeout_ms: Some(DEFAULT_TIMEOUT_MS), follow_redirects: Some(true), validate_ssl: Some(true), environment_id: None, save_history: Some(true) })
+    if url.is_empty() {
+        return Err("cURL import failed: URL is required".to_string());
+    }
+    Ok(ApiSendRequest { request_id: None, method, url, params, headers, cookies, auth, body, timeout_ms, follow_redirects, validate_ssl, environment_id: None, save_history: Some(true) })
+}
+
+fn api_pair(key: &str, value: &str, secret: bool) -> ApiKeyValue {
+    ApiKeyValue {
+        key: key.to_string(),
+        value: value.to_string(),
+        enabled: true,
+        secret: Some(secret),
+    }
+}
+
+fn split_curl_assignment(token: &str) -> (String, Option<String>) {
+    if let Some((flag, value)) = token.split_once('=') {
+        if flag.starts_with("--") {
+            return (flag.to_string(), Some(value.to_string()));
+        }
+    }
+    (token.to_string(), None)
+}
+
+fn parse_cookie_pairs(value: &str) -> Vec<ApiKeyValue> {
+    value
+        .split(';')
+        .filter_map(|item| {
+            let (key, val) = item.trim().split_once('=')?;
+            Some(api_pair(key.trim(), val.trim(), true))
+        })
+        .collect()
+}
+
+fn parse_query_pairs(value: &str) -> Vec<ApiKeyValue> {
+    value
+        .split('&')
+        .filter_map(|item| {
+            let (key, val) = item.trim().split_once('=')?;
+            Some(api_pair(key.trim(), val.trim(), is_sensitive_key(key)))
+        })
+        .collect()
+}
+
+fn raw_body_from_curl_data(value: String, headers: &[ApiKeyValue]) -> ApiBodyConfig {
+    let content_type = headers
+        .iter()
+        .find(|header| header.key.eq_ignore_ascii_case("content-type"))
+        .map(|header| header.value.clone());
+    let body_type = content_type
+        .as_deref()
+        .map(|content_type| {
+            if content_type.contains("json") {
+                "json"
+            } else if content_type.contains("xml") {
+                "xml"
+            } else {
+                "raw"
+            }
+        })
+        .unwrap_or("raw")
+        .to_string();
+    ApiBodyConfig {
+        body_type,
+        raw: Some(value),
+        form: None,
+        multipart: None,
+        binary_path: None,
+        content_type,
+    }
+}
+
+fn push_form_body(body: &mut Option<ApiBodyConfig>, value: String) {
+    let (key, val) = value.split_once('=').unwrap_or((value.as_str(), ""));
+    let mut items = body
+        .as_ref()
+        .and_then(|body| body.multipart.clone())
+        .unwrap_or_default();
+    items.push(api_pair(key.trim(), val.trim(), false));
+    *body = Some(ApiBodyConfig {
+        body_type: "multipart".to_string(),
+        raw: None,
+        form: None,
+        multipart: Some(items),
+        binary_path: None,
+        content_type: Some("multipart/form-data".to_string()),
+    });
 }
 
 #[tauri::command]
@@ -786,5 +941,32 @@ mod tests {
         assert_eq!(request.method, "POST");
         assert_eq!(request.headers.len(), 1);
         assert_eq!(request.url, "https://example.com");
+    }
+
+    #[test]
+    fn parses_browser_style_curl_options() {
+        let request = cmd_api_import_curl(
+            "curl --url=https://example.com/search -G --data-urlencode 'q=devnexus' -u root:secret -b 'sid=abc; theme=dark' -L -k --max-time 3".to_string(),
+        ).unwrap();
+
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.url, "https://example.com/search");
+        assert_eq!(request.params[0].key, "q");
+        assert_eq!(request.params[0].value, "devnexus");
+        assert_eq!(request.cookies.len(), 2);
+        assert_eq!(request.auth.unwrap().auth_type, "basic");
+        assert_eq!(request.follow_redirects, Some(true));
+        assert_eq!(request.validate_ssl, Some(false));
+        assert_eq!(request.timeout_ms, Some(3000));
+    }
+
+    #[test]
+    fn parses_multipart_curl() {
+        let request = cmd_api_import_curl("curl -F 'name=devnexus' -F 'file=@README.md' https://example.com/upload".to_string()).unwrap();
+
+        assert_eq!(request.method, "POST");
+        let body = request.body.unwrap();
+        assert_eq!(body.body_type, "multipart");
+        assert_eq!(body.multipart.unwrap().len(), 2);
     }
 }

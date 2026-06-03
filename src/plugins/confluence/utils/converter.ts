@@ -188,31 +188,6 @@ export function markdownToConfluence(markdown: string): string {
   return nodeToXml(tree);
 }
 
-export function markdownToPreviewHtml(markdown: string): string {
-  const xml = markdownToConfluence(markdown);
-  let mermaidIndex = 0;
-  return xml
-    .replace(/<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">([^<]*)<\/ac:parameter><ac:plain-text-body><!\[CDATA\[([\s\S]*?)\]\]><\/ac:plain-text-body><\/ac:structured-macro>/g,
-      '<pre><code class="language-$1">$2</code></pre>')
-    .replace(/<ac:structured-macro ac:name="mathblock"><ac:plain-text-body><!\[CDATA\[([\s\S]*?)\]\]><\/ac:plain-text-body><\/ac:structured-macro>/g,
-      '<div class="math-block" style="background:#f5f5f5;padding:12px;border-radius:4px;font-family:serif;font-style:italic">$$$$1$$</div>')
-    .replace(/<ac:structured-macro ac:name="mathinline"><ac:parameter ac:name="body">([^<]*)<\/ac:parameter><\/ac:structured-macro>/g,
-      '<span class="math-inline" style="font-family:serif;font-style:italic">$$$1$</span>')
-    .replace(/<ac:structured-macro ac:name="drawio">[\s\S]*?<ac:parameter ac:name="diagramName">mermaid-[^<]+\.drawio<\/ac:parameter>[\s\S]*?<\/ac:structured-macro>/g, () => {
-      const diagrams = extractMermaidSources(markdown);
-      const source = diagrams[mermaidIndex++] ?? "";
-      return `<div class="confluence-mermaid-preview" data-mermaid="${encodeURIComponent(source)}"><pre style="white-space:pre-wrap">${escapeXml(source)}</pre></div>`;
-    })
-    .replace(/<ac:image><ri:url ri:value="([^"]*)" \/><\/ac:image>/g,
-      '<img src="$1" style="max-width:100%" />')
-    .replace(/<ac:image><ri:attachment ri:filename="([^"]*)" \/><\/ac:image>/g,
-      '<img alt="$1" style="max-width:100%;border:1px dashed #ccc;padding:4px" title="Attachment: $1" />')
-    .replace(/<ac:task><ac:task-status>complete<\/ac:task-status><ac:task-body>([\s\S]*?)<\/ac:task-body><\/ac:task>/g,
-      '<li style="list-style:none"><input type="checkbox" checked disabled /> $1</li>')
-    .replace(/<ac:task><ac:task-status>incomplete<\/ac:task-status><ac:task-body>([\s\S]*?)<\/ac:task-body><\/ac:task>/g,
-      '<li style="list-style:none"><input type="checkbox" disabled /> $1</li>');
-}
-
 export function extractMermaidSources(markdown: string): string[] {
   const sources: string[] = [];
   const mermaidRegex = /```mermaid\s*\n([\s\S]*?)```/g;

@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Descriptions, Form, Input, InputNumber, Select, Space, Tabs, Tag, TreeSelect, Typography, message } from "antd";
+import { Alert, Button, Card, Checkbox, Descriptions, Form, Input, InputNumber, Modal, Select, Space, Tabs, Tag, TreeSelect, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 
 import { useApiDebuggerStore } from "@/plugins/api-debugger/store/api-debugger";
@@ -73,8 +73,12 @@ export function RequestWorkspace() {
   const previewRequest = useApiDebuggerStore((state) => state.previewRequest);
   const cancelRequest = useApiDebuggerStore((state) => state.cancelRequest);
   const saveRequest = useApiDebuggerStore((state) => state.saveRequest);
+  const importCurl = useApiDebuggerStore((state) => state.importCurl);
   const setActiveEnvironment = useApiDebuggerStore((state) => state.setActiveEnvironment);
   const [saving, setSaving] = useState(false);
+  const [importingCurl, setImportingCurl] = useState(false);
+  const [curlModalOpen, setCurlModalOpen] = useState(false);
+  const [curlText, setCurlText] = useState("");
   const [saveTarget, setSaveTarget] = useState<{ collectionId?: string; folderId?: string }>({});
 
   useEffect(() => form.setFieldsValue({ ...request, name: requestName }), [form, request, requestName]);
@@ -130,6 +134,25 @@ export function RequestWorkspace() {
     }
   };
 
+  const confirmImportCurl = async () => {
+    const text = curlText.trim();
+    if (!text) {
+      message.warning("Paste a cURL command first");
+      return;
+    }
+    setImportingCurl(true);
+    try {
+      await importCurl(text);
+      setCurlModalOpen(false);
+      setCurlText("");
+      message.success("cURL imported into Workspace");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setImportingCurl(false);
+    }
+  };
+
   const saveTargetValue = saveTarget.folderId ? folderTarget(saveTarget.folderId) : saveTarget.collectionId ? collectionTarget(saveTarget.collectionId) : undefined;
 
   const saveTargetTree = useMemo<SaveTargetNode[]>(() => {
@@ -177,6 +200,7 @@ export function RequestWorkspace() {
           treeData={saveTargetTree}
           onChange={selectSaveTarget}
         />
+        <Button onClick={() => setCurlModalOpen(true)}>Import cURL</Button>
         <Button loading={saving} onClick={confirmSave}>Save</Button>
         <Button onClick={previewRequest}>Preview</Button>
         <Button onClick={cancelRequest} disabled={!loading}>Cancel</Button>
@@ -205,7 +229,7 @@ export function RequestWorkspace() {
               <Form.Item name={["body", "raw"]} label="Raw Body"><Input.TextArea rows={10} /></Form.Item>
               <Form.Item name={["body", "form"]} label="Form URL Encoded"><KeyValueEditor /></Form.Item>
               <Form.Item name={["body", "multipart"]} label="Multipart"><KeyValueEditor /></Form.Item>
-              <Form.Item name={["body", "binaryPath"]} label="Binary File Path"><Input placeholder="D:\\Downloads\\payload.bin" /></Form.Item>
+              <Form.Item name={["body", "binaryPath"]} label="Binary File Path"><Input placeholder="Select or paste a binary file path" /></Form.Item>
             </Space> },
             { key: "settings", label: "Settings", children: <Space align="start">
               <Form.Item name="timeoutMs" label="Timeout (ms)"><InputNumber min={500} max={300000} /></Form.Item>
@@ -218,5 +242,25 @@ export function RequestWorkspace() {
       </Card>
       <ResponsePanel />
     </Space>
+    <Modal
+      title="Import cURL"
+      open={curlModalOpen}
+      okText="Import"
+      confirmLoading={importingCurl}
+      onOk={confirmImportCurl}
+      onCancel={() => setCurlModalOpen(false)}
+      width={760}
+    >
+      <Typography.Paragraph type="secondary">
+        Paste a cURL command copied from browser DevTools, Postman or terminal. DevNexus will import method, URL, headers, cookies, auth and body into the current workspace.
+      </Typography.Paragraph>
+      <Input.TextArea
+        autoFocus
+        rows={10}
+        value={curlText}
+        onChange={(event) => setCurlText(event.target.value)}
+        placeholder={"curl -X POST https://api.example.com/users \\\n  -H 'Content-Type: application/json' \\\n  -H 'Authorization: Bearer token' \\\n  -d '{\"name\":\"DevNexus\"}'"}
+      />
+    </Modal>
   </div>;
 }

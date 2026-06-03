@@ -15,6 +15,7 @@ import { Button, Empty, Form, Input, InputNumber, List, Modal, Progress, Space, 
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 
+import { useI18n } from "@/app/i18n";
 import {
   clearLanChatConversation,
   clearLanChatTransfers,
@@ -65,6 +66,7 @@ function getDirectPeer(conversationId: string, devices: LanChatDevice[]): LanCha
 }
 
 export function LanChatWindowHost() {
+  const { t } = useI18n();
   const windowState = useLanChatStore((state) => state.window);
   const closeWindow = useLanChatStore((state) => state.closeWindow);
   const minimizeWindow = useLanChatStore((state) => state.minimizeWindow);
@@ -247,7 +249,7 @@ export function LanChatWindowHost() {
     if (!activeConversation || activeConversation.conversationType !== "direct") return true;
     const online = isDirectConversationOnline({ conversationId: activeConversation.id, devices });
     if (online === false) {
-      void message.warning("对方已下线，无法发送消息");
+      void message.warning(t("lan.peerOfflineWarn"));
       return false;
     }
     return true;
@@ -279,12 +281,12 @@ export function LanChatWindowHost() {
 
   const handleSelectedFile = async () => {
     if (!activeConversation) {
-      void message.warning("Select a conversation first");
+      void message.warning(t("lan.selectConversationFirst"));
       return;
     }
     if (!ensureDirectPeerOnline()) return;
     const conversation = activeConversation;
-    const selected = await open({ multiple: false, directory: false, title: "选择要发送的文件" });
+    const selected = await open({ multiple: false, directory: false, title: t("lan.pickFile") });
     if (!selected || Array.isArray(selected)) return;
     const fileName = selected.split(/[\\/]/).pop() ?? "File";
     const transfer = await createLanChatTransfer({ conversationId: conversation.id, conversationType: conversation.conversationType, fileName, fileSize: 0, direction: "send" });
@@ -303,12 +305,12 @@ export function LanChatWindowHost() {
     try {
       const metadata = parseLanChatMessageMetadata(item.metadataJson);
       const targetPath = await save({
-        title: "保存聊天附件",
         defaultPath: metadata.fileName ?? "attachment.bin",
+        title: t("lan.saveAttachment"),
       });
       if (!targetPath) return;
       const path = await saveLanChatMessageAttachment(item.id, targetPath);
-      void message.success(`已保存到 ${path}`);
+      void message.success(t("lan.savedTo", { path }));
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error));
     }
@@ -317,7 +319,7 @@ export function LanChatWindowHost() {
   const handleClearCurrentConversation = async () => {
     if (!activeConversation) return;
     if (activeConversation.id === PUBLIC_ROOM_ID) {
-      void message.warning("公共聊天室不可删除");
+      void message.warning(t("lan.publicRoomCannotDelete"));
       return;
     }
     await clearLanChatConversation(activeConversation.id);
@@ -352,9 +354,9 @@ export function LanChatWindowHost() {
           {item.conversationType === "direct" ? <span className={online ? "devnexus-lan-chat-window__presence-dot devnexus-lan-chat-window__presence-dot--online" : "devnexus-lan-chat-window__presence-dot devnexus-lan-chat-window__presence-dot--offline"} /> : null}
           {isPublic ? <TeamOutlined /> : null}
           <strong>{item.title}</strong>
-          <Tag color={isPublic ? "blue" : online ? "green" : "default"}>{isPublic ? "公共" : "私聊"}</Tag>
+          <Tag color={isPublic ? "blue" : online ? "green" : "default"}>{isPublic ? t("common.public") : t("common.direct")}</Tag>
         </div>
-        <Text type="secondary">{item.conversationType === "direct" ? (online ? "在线" : "已下线") : item.subtitle}</Text>
+        <Text type="secondary">{item.conversationType === "direct" ? (online ? t("common.online") : t("common.offline")) : item.subtitle}</Text>
       </List.Item>
     );
   };
@@ -378,7 +380,7 @@ export function LanChatWindowHost() {
       return <Space direction="vertical" size={6} className="devnexus-lan-chat-window__attachment"><video className="devnexus-lan-chat-window__preview-video" src={previewSource} controls />{metadata.fileName ? <Text type="secondary">{metadata.fileName}</Text> : null}</Space>;
     }
     if (messageType === "file") {
-      return <Space direction="vertical" size={2} className="devnexus-lan-chat-window__attachment"><Text strong>{metadata.fileName ?? "File"}</Text><Text type="secondary">{metadata.fileSize ? formatTransferSize(metadata.fileSize) : "Attachment"}</Text><Button size="small" onClick={() => void handleDownloadAttachment(item)}>下载到本地</Button></Space>;
+      return <Space direction="vertical" size={2} className="devnexus-lan-chat-window__attachment"><Text strong>{metadata.fileName ?? t("common.file")}</Text><Text type="secondary">{metadata.fileSize ? formatTransferSize(metadata.fileSize) : t("common.attachment")}</Text><Button size="small" onClick={() => void handleDownloadAttachment(item)}>{t("common.saveLocal")}</Button></Space>;
     }
     return <div className="devnexus-lan-chat-window__message-text">{item.content}</div>;
   };
@@ -389,11 +391,10 @@ export function LanChatWindowHost() {
     <section className="devnexus-lan-chat-window" style={style}>
       <header className="devnexus-lan-chat-window__header" onMouseDown={(event) => startDrag(event, "move")}>
         <div>
-          <strong>LAN Chat</strong>
-          <Text type="secondary">{identity ? identity.nickname + " · ID: " + formatDeviceId(identity.deviceId) + " · :" + identity.port : "Local room and P2P chat"}</Text>
+          <strong>{t("lan.title")}</strong>
+          <Text type="secondary">{identity ? identity.nickname + " · ID: " + formatDeviceId(identity.deviceId) + " · :" + identity.port : t("lan.subtitle")}</Text>
         </div>
         <Space size={4} onMouseDown={(event) => event.stopPropagation()}>
-          <Tag color="green">v0.9.2</Tag>
           <Button size="small" type="text" icon={<ReloadOutlined />} loading={loading} onClick={() => void refresh()} />
           <Button size="small" type="text" icon={<SettingOutlined />} onClick={() => { const currentNickname = form.getFieldValue("nickname") as string | undefined; form.setFieldsValue({ nickname: identity?.nicknameRequired ? currentNickname ?? "" : identity?.nickname, port: identity?.port ?? 45881 }); setSettingsOpen(true); }} />
           <Button size="small" type="text" icon={<MinusOutlined />} onClick={minimizeWindow} />
@@ -403,9 +404,9 @@ export function LanChatWindowHost() {
       </header>
       <div className="devnexus-lan-chat-window__body" style={bodyStyle}>
         <aside className="devnexus-lan-chat-window__sessions">
-          <Button block icon={<UserOutlined />} onClick={() => setDirectModalOpen(true)}>New Direct</Button>
-          <Button block danger icon={<DeleteOutlined />} disabled={!activeConversation || activeConversation.id === PUBLIC_ROOM_ID} onClick={() => void handleClearCurrentConversation()}>Clear Current</Button>
-          <List size="small" dataSource={visibleConversations} locale={{ emptyText: "公共聊天室会自动创建，可添加私聊对象" }} renderItem={renderConversation} />
+          <Button block icon={<UserOutlined />} onClick={() => setDirectModalOpen(true)}>{t("lan.newDirect")}</Button>
+          <Button block danger icon={<DeleteOutlined />} disabled={!activeConversation || activeConversation.id === PUBLIC_ROOM_ID} onClick={() => void handleClearCurrentConversation()}>{t("lan.clearCurrent")}</Button>
+          <List size="small" dataSource={visibleConversations} locale={{ emptyText: t("lan.emptyConversations") }} renderItem={renderConversation} />
         </aside>
         <div className="devnexus-lan-chat-window__pane-divider" role="separator" aria-label="Resize conversation list" onMouseDown={(event) => startDrag(event, "resize-left-pane")} />
         <main className="devnexus-lan-chat-window__chat">
@@ -413,12 +414,12 @@ export function LanChatWindowHost() {
             <div className="devnexus-lan-chat-window__chat-title">
               <Space direction="vertical" size={0}>
                 <strong>{activeConversation.title}</strong>
-                {activeConversation.conversationType === "room" ? <Text type="secondary" copyable={{ text: activeConversation.id }}>{activeRoom?.isSystem ? "Public room" : "Invite / Room ID"}: {activeConversation.id} · {activeRoom?.channel?.toUpperCase() ?? "UDP"}</Text> : <Text type="secondary">{activeDirectOnline === false ? "对方已下线" : "P2P · " + formatLanEndpoint(activeDirectPeer?.host, activeDirectPeer?.port ?? 45881)}</Text>}
+                {activeConversation.conversationType === "room" ? <Text type="secondary" copyable={{ text: activeConversation.id }}>{activeRoom?.isSystem ? t("lan.publicRoom") : t("lan.inviteRoomId")}: {activeConversation.id} · {activeRoom?.channel?.toUpperCase() ?? "UDP"}</Text> : <Text type="secondary">{activeDirectOnline === false ? t("common.offline") : "P2P · " + formatLanEndpoint(activeDirectPeer?.host, activeDirectPeer?.port ?? 45881)}</Text>}
               </Space>
-              <Text type="secondary">{activeConversation.conversationType === "room" ? "公共聊天室" : "Direct P2P"}</Text>
+              <Text type="secondary">{activeConversation.conversationType === "room" ? t("lan.publicRoom") : t("lan.directP2P")}</Text>
             </div>
             <div className="devnexus-lan-chat-window__messages">
-              {messages.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No messages yet" /> : messages.map((item) => {
+              {messages.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("lan.noMessages")} /> : messages.map((item) => {
                 const mine = item.senderDeviceId === identity?.deviceId;
                 return <div key={item.id} className={mine ? "devnexus-lan-chat-window__message-row devnexus-lan-chat-window__message-row--mine" : "devnexus-lan-chat-window__message-row"}>
                   <Text className="devnexus-lan-chat-window__message-sender" type="secondary">{resolveLanChatSenderName({ senderDeviceId: item.senderDeviceId, localDeviceId: identity?.deviceId, localNickname: identity?.nickname, devices })} · {new Date(item.createdAt).toLocaleTimeString()}</Text>
@@ -428,25 +429,25 @@ export function LanChatWindowHost() {
               <div ref={messagesEndRef} />
             </div>
             <div className="devnexus-lan-chat-window__composer">
-              <Input.TextArea autoSize={{ minRows: 1, maxRows: 4 }} value={draft} placeholder="输入消息，支持图片、音频和文件" onChange={(event) => setDraft(event.target.value)} onPressEnter={(event) => { if (!event.shiftKey) { event.preventDefault(); void handleSend(); } }} />
+              <Input.TextArea autoSize={{ minRows: 1, maxRows: 4 }} value={draft} placeholder={t("lan.messagePlaceholder")} onChange={(event) => setDraft(event.target.value)} onPressEnter={(event) => { if (!event.shiftKey) { event.preventDefault(); void handleSend(); } }} />
               <Button icon={<FileAddOutlined />} onClick={() => void handleSelectedFile()} />
               <Button type="primary" icon={<SendOutlined />} onClick={() => void handleSend()} />
             </div>
-          </> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Create or select a room/direct conversation" />}
+          </> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("lan.selectConversation")} />}
         </main>
         <div className="devnexus-lan-chat-window__pane-divider" role="separator" aria-label="Resize member panel" onMouseDown={(event) => startDrag(event, "resize-right-pane")} />
         <aside className="devnexus-lan-chat-window__meta">
-          <Tabs size="small" items={[{ key: "members", label: activeConversation?.conversationType === "room" ? "群聊成员" : "Members", children: <Space direction="vertical" size={8} style={{ width: "100%" }}>{identity ? <div className="devnexus-lan-chat-window__identity-card"><Text type="secondary">Your Device ID</Text><Space><Text code>{formatDeviceId(identity.deviceId)}</Text><Button size="small" icon={<CopyOutlined />} onClick={() => void copyText(identity.deviceId, "Device ID copied")} /></Space></div> : null}<List size="small" dataSource={activeRoomMembers} renderItem={(item) => <List.Item actions={item.isLocal ? [] : [<Button key="chat" size="small" type="link" disabled={!isLanChatDeviceCurrentlyOnline(item)} onClick={() => void handleStartDirectFromDevice(item)}>Chat</Button>]}><Space direction="vertical" size={0} className="devnexus-lan-chat-window__member-item"><Text strong><span className={isLanChatDeviceCurrentlyOnline(item) ? "devnexus-lan-chat-window__presence-dot devnexus-lan-chat-window__presence-dot--online" : "devnexus-lan-chat-window__presence-dot devnexus-lan-chat-window__presence-dot--offline"} /><UserOutlined /> {item.nickname}</Text><Text type="secondary">{item.isLocal ? "Local device" : isLanChatDeviceCurrentlyOnline(item) ? "在线" : "已下线"}{" · " + formatLanEndpoint(item.host, item.port)}</Text><Space size={4}><Text className="devnexus-lan-chat-window__device-id" code>{formatDeviceId(item.deviceId)}</Text><Button size="small" icon={<CopyOutlined />} onClick={() => void copyText(item.deviceId, "Device ID copied")} /></Space></Space></List.Item>} /></Space> }, { key: "transfers", label: "Transfers", children: <Space direction="vertical" size={8} style={{ width: "100%" }}><Button block danger size="small" icon={<DeleteOutlined />} disabled={transfers.length === 0} onClick={() => void clearLanChatTransfers().then(() => setTransfers([]))}>Clear Transfers</Button><List size="small" dataSource={transfers} locale={{ emptyText: "No transfers" }} renderItem={(item) => <List.Item><Space direction="vertical" style={{ width: "100%" }}><Text strong>{item.fileName}</Text><Progress percent={item.progress} size="small" /><Text type="secondary">{item.status} · {formatTransferSize(item.fileSize)}</Text></Space></List.Item>} /></Space> }]} />
+          <Tabs size="small" items={[{ key: "members", label: activeConversation?.conversationType === "room" ? t("lan.roomMembers") : t("lan.members"), children: <Space direction="vertical" size={8} style={{ width: "100%" }}>{identity ? <div className="devnexus-lan-chat-window__identity-card"><Text type="secondary">{t("lan.yourDeviceId")}</Text><Space><Text code>{formatDeviceId(identity.deviceId)}</Text><Button size="small" icon={<CopyOutlined />} onClick={() => void copyText(identity.deviceId, t("common.copyDeviceId"))} /></Space></div> : null}<List size="small" dataSource={activeRoomMembers} renderItem={(item) => <List.Item actions={item.isLocal ? [] : [<Button key="chat" size="small" type="link" disabled={!isLanChatDeviceCurrentlyOnline(item)} onClick={() => void handleStartDirectFromDevice(item)}>{t("app.chat")}</Button>]}><Space direction="vertical" size={0} className="devnexus-lan-chat-window__member-item"><Text strong><span className={isLanChatDeviceCurrentlyOnline(item) ? "devnexus-lan-chat-window__presence-dot devnexus-lan-chat-window__presence-dot--online" : "devnexus-lan-chat-window__presence-dot devnexus-lan-chat-window__presence-dot--offline"} /><UserOutlined /> {item.nickname}</Text><Text type="secondary">{item.isLocal ? t("common.localDevice") : isLanChatDeviceCurrentlyOnline(item) ? t("common.online") : t("common.offline")}{" · " + formatLanEndpoint(item.host, item.port)}</Text><Space size={4}><Text className="devnexus-lan-chat-window__device-id" code>{formatDeviceId(item.deviceId)}</Text><Button size="small" icon={<CopyOutlined />} onClick={() => void copyText(item.deviceId, t("common.copyDeviceId"))} /></Space></Space></List.Item>} /></Space> }, { key: "transfers", label: t("lan.transfers"), children: <Space direction="vertical" size={8} style={{ width: "100%" }}><Button block danger size="small" icon={<DeleteOutlined />} disabled={transfers.length === 0} onClick={() => void clearLanChatTransfers().then(() => setTransfers([]))}>{t("lan.clearTransfers")}</Button><List size="small" dataSource={transfers} locale={{ emptyText: t("lan.noTransfers") }} renderItem={(item) => <List.Item><Space direction="vertical" style={{ width: "100%" }}><Text strong>{item.fileName}</Text><Progress percent={item.progress} size="small" /><Text type="secondary">{item.status} · {formatTransferSize(item.fileSize)}</Text></Space></List.Item>} /></Space> }]} />
         </aside>
       </div>
       {(["n", "s", "e", "w", "ne", "nw", "se", "sw"] as WindowResizeDirection[]).map((direction) => <button key={direction} className={"devnexus-lan-chat-window__resize-handle devnexus-lan-chat-window__resize-handle--" + direction} type="button" aria-label={"Resize LAN Chat window " + direction} onMouseDown={(event) => startDrag(event, "resize-window", direction)} />)}
-      <Modal title="Create P2P Direct Chat" zIndex={LAN_CHAT_MODAL_Z_INDEX} open={directModalOpen} onCancel={() => setDirectModalOpen(false)} onOk={() => { const name = document.querySelector<HTMLInputElement>("#lan-chat-peer-name"); const id = document.querySelector<HTMLInputElement>("#lan-chat-peer-id"); const endpoint = document.querySelector<HTMLInputElement>("#lan-chat-peer-endpoint"); const parsed = endpoint?.value ? parseLanEndpoint(endpoint.value) : null; void handleCreateDirect({ peerName: name?.value || parsed?.host || "LAN Peer", peerDeviceId: id?.value || (parsed ? "ip:" + parsed.host + ":" + parsed.port : "manual-" + Date.now()), peerHost: parsed?.host, peerPort: parsed?.port }); }}><Space direction="vertical" style={{ width: "100%" }}><Input id="lan-chat-peer-endpoint" placeholder="Peer IP:Port, e.g. 192.168.1.23:45881" /><Input id="lan-chat-peer-name" placeholder="Peer nickname (optional)" /><Input id="lan-chat-peer-id" placeholder="Device ID (optional, advanced)" /><Text type="secondary">推荐在 Members 里点已发现设备的 Chat；手动直连只需要填写对方局域网 IP:Port。</Text></Space></Modal>
-      <Modal title={identity?.nicknameRequired ? "请先设置聊天昵称" : "LAN Chat Settings"} zIndex={LAN_CHAT_MODAL_Z_INDEX} open={settingsOpen || Boolean(identity?.nicknameRequired)} closable={!identity?.nicknameRequired} maskClosable={!identity?.nicknameRequired} onCancel={() => { if (identity?.nicknameRequired) { void message.warning("LAN Chat 需要先设置一个可识别的昵称"); return; } setSettingsOpen(false); }} onOk={() => void form.validateFields().then(handleSaveSettings)}>
+      <Modal title={t("lan.createDirect")} zIndex={LAN_CHAT_MODAL_Z_INDEX} open={directModalOpen} onCancel={() => setDirectModalOpen(false)} onOk={() => { const name = document.querySelector<HTMLInputElement>("#lan-chat-peer-name"); const id = document.querySelector<HTMLInputElement>("#lan-chat-peer-id"); const endpoint = document.querySelector<HTMLInputElement>("#lan-chat-peer-endpoint"); const parsed = endpoint?.value ? parseLanEndpoint(endpoint.value) : null; void handleCreateDirect({ peerName: name?.value || parsed?.host || "LAN Peer", peerDeviceId: id?.value || (parsed ? "ip:" + parsed.host + ":" + parsed.port : "manual-" + Date.now()), peerHost: parsed?.host, peerPort: parsed?.port }); }}><Space direction="vertical" style={{ width: "100%" }}><Input id="lan-chat-peer-endpoint" placeholder={t("lan.peerEndpoint")} /><Input id="lan-chat-peer-name" placeholder={t("lan.peerNickname")} /><Input id="lan-chat-peer-id" placeholder={t("lan.peerDeviceId")} /><Text type="secondary">{t("lan.directHint")}</Text></Space></Modal>
+      <Modal title={identity?.nicknameRequired ? t("lan.nicknameRequired") : t("lan.settings")} zIndex={LAN_CHAT_MODAL_Z_INDEX} open={settingsOpen || Boolean(identity?.nicknameRequired)} closable={!identity?.nicknameRequired} maskClosable={!identity?.nicknameRequired} onCancel={() => { if (identity?.nicknameRequired) { void message.warning(t("lan.nicknameRequiredWarn")); return; } setSettingsOpen(false); }} onOk={() => void form.validateFields().then(handleSaveSettings)}>
         <Form form={form} layout="vertical">
-          {identity ? <Form.Item label="Device ID"><Space><Text code>{formatDeviceId(identity.deviceId)}</Text><Button size="small" icon={<CopyOutlined />} onClick={() => void copyText(identity.deviceId, "Device ID copied")} /></Space></Form.Item> : null}
-          <Form.Item name="nickname" label="Device nickname" rules={[{ required: true, message: "请输入一个便于别人识别的昵称" }]} extra="昵称会显示在群聊和私聊消息上，不再默认使用电脑名。"><Input placeholder="例如：研发同学" /></Form.Item>
-          <Form.Item name="port" label="Listen port" rules={[{ required: true }]}><InputNumber min={1} max={65535} style={{ width: "100%" }} /></Form.Item>
-          <Text type="secondary">Download dir: {identity?.downloadDir ?? "Will be created on first use"}</Text>
+          {identity ? <Form.Item label={t("lan.deviceId")}><Space><Text code>{formatDeviceId(identity.deviceId)}</Text><Button size="small" icon={<CopyOutlined />} onClick={() => void copyText(identity.deviceId, t("common.copyDeviceId"))} /></Space></Form.Item> : null}
+          <Form.Item name="nickname" label={t("lan.deviceNickname")} rules={[{ required: true, message: t("lan.nicknameRule") }]} extra={t("lan.nicknameHelp")}><Input placeholder={t("lan.nicknamePlaceholder")} /></Form.Item>
+          <Form.Item name="port" label={t("lan.listenPort")} rules={[{ required: true }]}><InputNumber min={1} max={65535} style={{ width: "100%" }} /></Form.Item>
+          <Text type="secondary">{t("lan.downloadDir")}: {identity?.downloadDir ?? t("lan.downloadDirPending")}</Text>
         </Form>
       </Modal>
     </section>

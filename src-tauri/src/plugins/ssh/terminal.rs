@@ -857,7 +857,7 @@ mod tests {
 
     #[test]
     fn detects_common_password_prompts() {
-        assert!(is_password_prompt("root@192.168.67.172's password:"));
+        assert!(is_password_prompt("root@server.example's password:"));
         assert!(is_password_prompt("Password for root@host:"));
     }
 

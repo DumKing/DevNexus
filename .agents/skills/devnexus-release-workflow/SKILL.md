@@ -1,6 +1,6 @@
 ---
 name: devnexus-release-workflow
-description: Use when working on DevNexus releases, version iterations, plugin additions, README/release docs, PLAN.md progress, RepoWiki, or the DevNexus_Doc website from D:\rdmm.
+description: Use when working on DevNexus releases, version iterations, plugin additions, README, release docs, PLAN.md progress, RepoWiki, or the DevNexus_Doc website.
 ---
 
 # DevNexus Release Workflow
@@ -9,7 +9,7 @@ description: Use when working on DevNexus releases, version iterations, plugin a
 DevNexus work has synchronized product, docs, release, website, and progress rules. Treat docs and plan updates as part of the feature, not cleanup after coding.
 
 ## When to Use
-Use for work in `D:\rdmm` or `D:\dumking\DevNexus_Doc` involving:
+Use for work in this DevNexus repository or the sibling DevNexus_Doc website repository involving:
 - A new version, tag, release, or publish workflow.
 - New plugins or changes to visible plugin inventory.
 - README, release notes, RepoWiki, website, or PLAN.md changes.
@@ -21,7 +21,7 @@ Use for work in `D:\rdmm` or `D:\dumking\DevNexus_Doc` involving:
 - README split: keep Chinese docs in `README.md`; keep English docs in `README_EN.md`. Update both for user-visible capability changes.
 - Release notes: write both `docs/releases/cn/vX.Y.Z.md` and `docs/releases/en/vX.Y.Z.md`. The GitHub Release body uses the English file.
 - RepoWiki: when regenerating wiki docs, generate both `.qoder/repowiki/zh/...` and `.qoder/repowiki/en/...` content when possible.
-- Plugin toolbox: when adding or renaming a plugin, update `D:\dumking\DevNexus_Doc\src\data\plugin-toolbox.json` with Chinese and English summaries.
+- Plugin toolbox: when adding or renaming a plugin, update the website repository's `src/data/plugin-toolbox.json` with Chinese and English summaries.
 - Website generation: DevNexus_Doc reads Chinese README/release docs from `README.md` and `docs/releases/cn`, English from `README_EN.md` and `docs/releases/en`.
 - Release discipline: merge feature work to `main` before tagging; tags and releases should be based on `main`.
 
@@ -31,8 +31,8 @@ After meaningful DevNexus app changes, run:
 - `npm run build`
 - `cd src-tauri && cargo check`
 
-After website/doc generation changes, also run from `D:\dumking\DevNexus_Doc`:
-- `npm run build -- D:\rdmm`
+After website/doc generation changes, also run from the DevNexus_Doc website repository:
+- `npm run build -- <devnexus-repo>`
 - `git diff --check` scoped to touched files when generated RepoWiki files contain unrelated whitespace noise.
 
 ## Common Mistakes

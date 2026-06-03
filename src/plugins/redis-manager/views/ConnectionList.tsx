@@ -1,24 +1,17 @@
-import {
-  App,
-  Button,
-  Card,
-  Dropdown,
-  Empty,
-  Input,
-  Space,
-  Tag,
-  Typography,
-} from "antd";
+import { App, Button, Card, Collapse, Dropdown, Empty, Input, Space, Tag, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { PlusOutlined } from "@ant-design/icons";
 
+import { usePluginI18n } from "@/app/i18n/plugin";
 import { ConnectionForm } from "@/plugins/redis-manager/components/ConnectionForm";
+import { redisTranslations } from "@/plugins/redis-manager/i18n";
 import { useConnectionsStore } from "@/plugins/redis-manager/store/connections";
 import { useWorkspaceStore } from "@/plugins/redis-manager/store/workspace";
 import type { ConnectionInfo } from "@/plugins/redis-manager/types";
 
 export function ConnectionList() {
   const { message } = App.useApp();
+  const { t } = usePluginI18n(redisTranslations);
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState<ConnectionInfo | null>(null);
   const [keyword, setKeyword] = useState("");
@@ -30,9 +23,7 @@ export function ConnectionList() {
   const connect = useConnectionsStore((state) => state.connect);
   const disconnect = useConnectionsStore((state) => state.disconnect);
   const removeConnection = useConnectionsStore((state) => state.removeConnection);
-  const setActiveConnectionId = useWorkspaceStore(
-    (state) => state.setActiveConnectionId,
-  );
+  const setActiveConnectionId = useWorkspaceStore((state) => state.setActiveConnectionId);
   const setActiveDbIndex = useWorkspaceStore((state) => state.setActiveDbIndex);
   const setActiveView = useWorkspaceStore((state) => state.setActiveView);
 
@@ -42,38 +33,35 @@ export function ConnectionList() {
 
   const filtered = useMemo(() => {
     const text = keyword.trim().toLowerCase();
-    if (!text) {
-      return connections;
-    }
+    if (!text) return connections;
     return connections.filter((item) => item.name.toLowerCase().includes(text));
   }, [connections, keyword]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, ConnectionInfo[]>();
     filtered.forEach((item) => {
-      const key = item.groupName || "Default";
-      const prev = map.get(key) ?? [];
-      map.set(key, [...prev, item]);
+      const key = item.groupName || t("defaultGroup");
+      map.set(key, [...(map.get(key) ?? []), item]);
     });
     return [...map.entries()];
-  }, [filtered]);
+  }, [filtered, t]);
 
   const onConnect = async (item: ConnectionInfo) => {
     await connect(item.id);
     setActiveConnectionId(item.id);
     setActiveDbIndex(item.dbIndex);
     setActiveView("keys");
-    message.success(`Connected: ${item.name}`);
+    message.success(t("connectedMessage", { name: item.name }));
   };
 
   const onDisconnect = async (item: ConnectionInfo) => {
     await disconnect(item.id);
-    message.info(`Disconnected: ${item.name}`);
+    message.info(t("disconnectedMessage", { name: item.name }));
   };
 
   const onDelete = async (item: ConnectionInfo) => {
     await removeConnection(item.id);
-    message.success(`Deleted: ${item.name}`);
+    message.success(t("deleted", { name: item.name }));
   };
 
   const onSaved = async () => {
@@ -84,12 +72,12 @@ export function ConnectionList() {
 
   return (
     <Card
-      title="Connections"
+      title={t("connectionsTitle")}
       loading={loading}
       extra={
         <Space>
           <Input.Search
-            placeholder="Search by name"
+            placeholder={t("searchPlaceholder")}
             allowClear
             onChange={(event) => setKeyword(event.target.value)}
             style={{ width: 220 }}
@@ -97,32 +85,27 @@ export function ConnectionList() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => setOpenForm(true)}
+            onClick={() => {
+              setEditing(null);
+              setOpenForm(true);
+            }}
           >
-            New
+            {t("newConnection")}
           </Button>
         </Space>
       }
     >
       {grouped.length === 0 ? (
-        <Empty description="No connections yet" />
+        <Empty description={t("noConnections")} />
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-            gap: 12,
-            alignItems: "start",
-          }}
-        >
-          {grouped.map(([groupName, items]) => (
-            <Card
-              key={groupName}
-              size="small"
-              title={<Typography.Text strong>{groupName}</Typography.Text>}
-              style={{ height: "100%" }}
-            >
-              <Space direction="vertical" size={8} style={{ width: "100%" }}>
+        <Collapse
+          className="devnexus-connection-group__collapse"
+          defaultActiveKey={grouped.map(([groupName]) => groupName)}
+          items={grouped.map(([groupName, items]) => ({
+            key: groupName,
+            label: <Typography.Text strong>{groupName}</Typography.Text>,
+            children: (
+              <div className="devnexus-connection-group__grid">
                 {items.map((item) => {
                   const connected = connectedIds.includes(item.id);
                   return (
@@ -133,13 +116,12 @@ export function ConnectionList() {
                         items: [
                           {
                             key: "connect",
-                            label: connected ? "Disconnect" : "Connect",
-                            onClick: () =>
-                              connected ? onDisconnect(item) : onConnect(item),
+                            label: connected ? t("disconnect") : t("connect"),
+                            onClick: () => (connected ? onDisconnect(item) : onConnect(item)),
                           },
                           {
                             key: "edit",
-                            label: "Edit",
+                            label: t("edit"),
                             onClick: () => {
                               setEditing(item);
                               setOpenForm(true);
@@ -147,23 +129,15 @@ export function ConnectionList() {
                           },
                           {
                             key: "delete",
-                            label: "Delete",
+                            label: t("delete"),
                             danger: true,
                             onClick: () => onDelete(item),
                           },
                         ],
                       }}
                     >
-                      <Card
-                        size="small"
-                        hoverable
-                        onDoubleClick={() => {
-                          void onConnect(item);
-                        }}
-                      >
-                        <Space
-                          style={{ width: "100%", justifyContent: "space-between" }}
-                        >
+                      <Card size="small" hoverable onDoubleClick={() => void onConnect(item)}>
+                        <Space style={{ width: "100%", justifyContent: "space-between" }}>
                           <div>
                             <Typography.Text strong>{item.name}</Typography.Text>
                             <div>
@@ -173,17 +147,17 @@ export function ConnectionList() {
                             </div>
                           </div>
                           <Tag color={connected ? "green" : "default"}>
-                            {connected ? "Connected" : "Disconnected"}
+                            {connected ? t("connected") : t("disconnected")}
                           </Tag>
                         </Space>
                       </Card>
                     </Dropdown>
                   );
                 })}
-              </Space>
-            </Card>
-          ))}
-        </div>
+              </div>
+            ),
+          }))}
+        />
       )}
       <ConnectionForm
         open={openForm}
@@ -196,8 +170,7 @@ export function ConnectionList() {
                 host: editing.host,
                 port: editing.port,
                 dbIndex: editing.dbIndex,
-                connectionType:
-                  editing.connectionType as "Standalone" | "Sentinel" | "Cluster",
+                connectionType: editing.connectionType as "Standalone" | "Sentinel" | "Cluster",
               }
             : null
         }

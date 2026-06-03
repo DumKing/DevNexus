@@ -195,18 +195,49 @@ impl ConfluenceClient {
         })
     }
 
+    pub async fn get_page(&self, page_id: &str) -> Result<PageInfo, String> {
+        let url = format!(
+            "{}/rest/api/content/{}?expand=version,space",
+            self.base_url,
+            urlencoding::encode(page_id)
+        );
+        let resp = self
+            .http
+            .get(&url)
+            .header(AUTHORIZATION, &self.auth_header)
+            .header(ACCEPT, "application/json")
+            .send()
+            .await
+            .map_err(|e| format!("Get page failed: {e}"))?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(format!("Get page HTTP {}: {}", status, text));
+        }
+        let result: Value = resp
+            .json()
+            .await
+            .map_err(|e| format!("JSON parse failed: {e}"))?;
+        let page = parse_page_info(&result, "");
+        if page.id.is_empty() {
+            return Err("Get page failed: missing page id in response".to_string());
+        }
+        Ok(page)
+    }
+
     pub async fn update_page(
         &self,
         page_id: &str,
         title: &str,
         content_xml: &str,
-        version: u32,
+        _version: u32,
     ) -> Result<PageInfo, String> {
+        let current_page = self.get_page(page_id).await?;
         let url = format!("{}/rest/api/content/{}", self.base_url, page_id);
         let body = serde_json::json!({
             "type": "page",
             "title": title,
-            "version": { "number": version + 1 },
+            "version": { "number": next_update_version(current_page.version) },
             "body": {
                 "storage": {
                     "value": content_xml,
@@ -233,15 +264,7 @@ impl ConfluenceClient {
             .json()
             .await
             .map_err(|e| format!("JSON parse failed: {e}"))?;
-        Ok(PageInfo {
-            id: result["id"].as_str().unwrap_or_default().to_string(),
-            title: result["title"].as_str().unwrap_or_default().to_string(),
-            version: result["version"]["number"].as_u64().unwrap_or(1) as u32,
-            space_key: result["space"]["key"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-        })
+        Ok(parse_page_info(&result, &current_page.space_key))
     }
 
     pub async fn upload_attachment(
@@ -288,6 +311,22 @@ impl ConfluenceClient {
                 .unwrap_or_default()
                 .to_string(),
         })
+    }
+}
+
+fn next_update_version(current_version: u32) -> u32 {
+    current_version.saturating_add(1)
+}
+
+fn parse_page_info(body: &Value, default_space_key: &str) -> PageInfo {
+    PageInfo {
+        id: body["id"].as_str().unwrap_or_default().to_string(),
+        title: body["title"].as_str().unwrap_or_default().to_string(),
+        version: body["version"]["number"].as_u64().unwrap_or(1) as u32,
+        space_key: body["space"]["key"]
+            .as_str()
+            .unwrap_or(default_space_key)
+            .to_string(),
     }
 }
 
@@ -351,5 +390,10 @@ mod tests {
         assert_eq!(pages.len(), 1);
         assert_eq!(pages[0].title, "Home");
         assert_eq!(pages[0].space_key, "LAI");
+    }
+
+    #[test]
+    fn update_uses_next_remote_page_version() {
+        assert_eq!(next_update_version(2), 3);
     }
 }

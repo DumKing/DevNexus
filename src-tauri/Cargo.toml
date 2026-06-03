@@ -1,6 +1,6 @@
 [package]
 name = "devnexus"
-version = "0.10.0"
+version = "0.10.1"
 description = "Developer toolbox desktop app"
 authors = ["devnexus"]
 edition = "2021"
@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
@@ -46,3 +46,5 @@ encoding_rs = "0.8.35"
 reqwest = { version = "0.12.24", default-features = false, features = ["rustls-tls", "json", "multipart", "gzip", "brotli", "deflate", "cookies", "blocking"] }
 lapin = "4.4.0"
 rdkafka = { version = "0.39.0", features = ["cmake-build"] }
+tauri-plugin-autostart = "2.5.1"
+tauri-plugin-notification = "2.3.3"

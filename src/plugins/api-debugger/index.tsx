@@ -2,6 +2,7 @@ import { ApiOutlined } from "@ant-design/icons";
 import { Segmented, Space, Typography } from "antd";
 import { useEffect } from "react";
 
+import { useI18n } from "@/app/i18n";
 import type { PluginManifest } from "@/app/plugin-registry/types";
 import { useApiDebuggerStore } from "@/plugins/api-debugger/store/api-debugger";
 import type { ApiWorkspaceTab } from "@/plugins/api-debugger/types";
@@ -11,6 +12,7 @@ import { HistoryView } from "@/plugins/api-debugger/views/HistoryView";
 import { RequestWorkspace } from "@/plugins/api-debugger/views/RequestWorkspace";
 
 function ApiDebuggerRoot() {
+  const { t } = useI18n();
   const tab = useApiDebuggerStore((state) => state.tab);
   const setTab = useApiDebuggerStore((state) => state.setTab);
   const fetchAll = useApiDebuggerStore((state) => state.fetchAll);
@@ -23,8 +25,8 @@ function ApiDebuggerRoot() {
 
   return <div style={{ width: "100%", height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
     <Space style={{ width: "100%", justifyContent: "space-between" }}>
-      <Segmented value={tab} onChange={(value) => setTab(value as ApiWorkspaceTab)} options={[{ label: "Workspace", value: "workspace" }, { label: "Collections", value: "collections" }, { label: "Environments", value: "environments" }, { label: "History", value: "history" }]} />
-      <Typography.Text type="secondary">Environment: {activeEnvName ?? "None"}</Typography.Text>
+      <Segmented value={tab} onChange={(value) => setTab(value as ApiWorkspaceTab)} options={[{ label: t("tabs.workspace"), value: "workspace" }, { label: t("tabs.collections"), value: "collections" }, { label: t("tabs.environments"), value: "environments" }, { label: t("tabs.history"), value: "history" }]} />
+      <Typography.Text type="secondary">{t("tabs.environment")}: {activeEnvName ?? t("common.none")}</Typography.Text>
     </Space>
     <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
       {tab === "workspace" ? <RequestWorkspace /> : null}
